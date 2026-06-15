@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnamPouch - Your Portable AI Medical Assistant</title>
+    <link rel="icon" href="/anampouch_logo_transparent.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2D5A8E;
+            --primary-light: #7FC5E3;
+            --primary-soft: #EBF5FB;
+            --accent: #B5E5E0;
+            --accent-soft: #F0F9F8;
+            --bg: #FBFCFD;
+            --card-bg: #ffffff;
+            --text: #1A3A5C;
+            --text-muted: #64748B;
+            --border: #E2E8F0;
+            --radius: 16px;
+            --radius-sm: 8px;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+            --shadow-lg: 0 10px 25px -5px rgb(45 90 142 / 0.08), 0 8px 10px -6px rgb(45 90 142 / 0.08);
+            --font-family: 'Inter', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: var(--font-family);
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 0% 0%, var(--primary-soft) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, var(--accent-soft) 0px, transparent 50%);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Nav */
+        header {
+            padding: 1rem 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            background-color: rgba(251, 252, 253, 0.8);
+            backdrop-filter: blur(16px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 100;
+            transition: all 0.3s ease;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .logo img {
+            height: 58px;
+            width: auto;
+            transition: transform 0.3s ease;
+        }
+
+        .logo:hover img {
+            transform: rotate(-5deg) scale(1.05);
+        }
+
+        nav {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--primary);
+            background-color: var(--primary-soft);
+        }
+
+        .header-cta {
+            display: flex;
+            align-items: center;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            text-decoration: none;
+            font-size: 0.95rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, #3d79b8 100%);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 14px rgba(45, 90, 142, 0.15);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(45, 90, 142, 0.25);
+            opacity: 0.95;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--primary);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-secondary:hover {
+            background: var(--primary-soft);
+            border-color: var(--primary-light);
+            transform: translateY(-2px);
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            background: var(--accent-soft);
+            color: var(--primary);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            border: 1px solid var(--accent);
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+            animation: fadeUp 1s ease-out;
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 8rem 5% 4rem;
+            position: relative;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4.2rem);
+            font-weight: 800;
+            color: var(--text);
+            margin-bottom: 1.2rem;
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            animation: fadeUp 1s ease-out 0.1s backwards;
+        }
+
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: clamp(1.05rem, 1.8vw, 1.35rem);
+            color: var(--text-muted);
+            max-width: 750px;
+            margin-bottom: 2.5rem;
+            animation: fadeUp 1s ease-out 0.3s backwards;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 1rem;
+            animation: fadeUp 1s ease-out 0.4s backwards;
+        }
+
+        /* Section Global */
+        section {
+            padding: 6rem 5%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--text);
+            margin-bottom: 3.5rem;
+            position: relative;
+        }
+
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px;
+            height: 4px;
+            background: var(--primary-light);
+            border-radius: 2px;
+        }
+
+        /* Cards Layout */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 2.5rem;
+            box-shadow: var(--shadow);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: transparent;
+            transition: background-color 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-6px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary-light);
+        }
+
+        .card:hover::before {
+            background: var(--primary);
+        }
+
+        .card h3 {
+            font-size: 1.35rem;
+            margin-bottom: 1rem;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .card p {
+            color: var(--text-muted);
+            font-size: 0.98rem;
+            line-height: 1.6;
+        }
+
+        .icon-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            background: var(--primary-soft);
+            font-size: 1.3rem;
+        }
+
+        /* Mermaid Block */
+        .mermaid-container {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 3rem 2rem;
+            box-shadow: var(--shadow);
+            overflow-x: auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        .mermaid {
+            width: 100%;
+            max-width: 800px;
+            background: white;
+        }
+
+        /* Animations */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Footer */
+        footer {
+            background: white;
+            border-top: 1px solid var(--border);
+            padding: 4rem 5% 3rem;
+            color: var(--text-muted);
+            font-size: 0.92rem;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 2rem;
+        }
+
+        .footer-logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .footer-logo img {
+            height: 36px;
+        }
+
+        @media (max-width: 768px) {
+            header {
+                padding: 1rem;
+            }
+            nav {
+                display: none; /* Mobile navigation simplified */
+            }
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            .hero {
+                padding-top: 7rem;
+            }
+            .hero-actions {
+                flex-direction: column;
+                width: 100%;
+                max-width: 320px;
+            }
+            .btn {
+                width: 100%;
+            }
+            .footer-content {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="#" class="logo">
+            <img src="/anampouch_logo_transparent.png" alt="AnamPouch Logo">
+            <span>AnamPouch</span>
+        </a>
+        <nav>
+            <a href="#problem" class="nav-link">Problem & Solution</a>
+            <a href="#architecture" class="nav-link">System Architecture</a>
+            <a href="#features" class="nav-link">Core Features</a>
+        </nav>
+        <div class="header-cta">
+            <a href="/" class="btn btn-primary">Launch App</a>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="badge">✨ Privacy-First Health Assistant</div>
+            <h1>Your Medical History, Fully Under <span>Your Control</span></h1>
+            <p>True data sovereignty via on-device AI processing and decentralized blockchain verification. Secure, instant, and completely private.</p>
+            <div class="hero-actions">
+                <a href="/" class="btn btn-primary">Launch Application</a>
+                <a href="#problem" class="btn btn-secondary">Learn More</a>
+            </div>
+        </section>
+
+        <section id="problem">
+            <h2 class="section-title">Resolving Medical Data Silos</h2>
+            <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));">
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">⚠️</div>
+                        <span>The Problem</span>
+                    </h3>
+                    <p>Fragmented data silos prevent patients from maintaining a unified, continuous medical history. Traditional cloud AI processing risks exposing extremely sensitive personal clinical records to central servers.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">💡</div>
+                        <span>Our Solution</span>
+                    </h3>
+                    <p>AnamPouch locks medical records locally on your personal device. Utilizing secure edge AI for auto-summaries and blockchain for decentralized verification, we eliminate central data leaks once and for all.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="architecture">
+            <h2 class="section-title">Hybrid Architecture</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">🧠</div>
+                        <span>On-Device AI</span>
+                    </h3>
+                    <p>Lightweight, specialized local speech-to-text (ASR) and large language models (LLM) run offline on your device, processing consultations locally.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">🛡️</div>
+                        <span>Zero-Trust Storage</span>
+                    </h3>
+                    <p>Your medical data is encrypted client-side using robust cryptographic keys, keeping records completely private and invisible to third parties.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">⛓️</div>
+                        <span>Blockchain Proofs</span>
+                    </h3>
+                    <p>Tamper-proof cryptographic hashes are anchored directly to the Sui blockchain via OpenClaw, ensuring verified, immutability without revealing record contents.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">⏳</div>
+                        <span>Ephemeral Sharing</span>
+                    </h3>
+                    <p>Share records securely with doctors using time-bound, secure QR codes. Relies on decentralized peer verification; strictly view-only with no downloads.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="workflow">
+            <h2 class="section-title">Data Flow</h2>
+            <div class="mermaid-container">
+                <div class="mermaid">
+                    graph TD
+                        classDef default fill:#F8FAFC,stroke:#2D5A8E,stroke-width:2px,color:#1A3A5C,rx:8px,ry:8px
+                        classDef blockchain fill:#F0F9F8,stroke:#B5E5E0,stroke-width:2px,color:#1A3A5C,rx:8px,ry:8px
+                        classDef secure fill:#EBF5FB,stroke:#7FC5E3,stroke-width:2px,color:#1A3A5C,rx:8px,ry:8px
+
+                        A[Consultation Audio] -->|On-Device ASR| B(Transcribed Text)
+                        B -->|Local LLM| C(Clinical Summary)
+                        C --> D{Secure Encryption}
+                        
+                        D -->|Encrypted Blob| E[Smartphone Local Storage]:::secure
+                        D -->|Hash & Signatures| F[(Sui Blockchain / OpenClaw)]:::blockchain
+                        
+                        E -.->|Dynamic QR Auth| G[Ephemeral Viewer]
+                        G -.->|Temporary Access| H[Authorized Physician]
+                </div>
+            </div>
+        </section>
+
+        <section id="features">
+            <h2 class="section-title">Core Features</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">📊</div>
+                        <span>Dashboard</span>
+                    </h3>
+                    <p>A beautifully intuitive summary showing your current health status, active treatments, and AI-driven clinical action steps.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">🎙️</div>
+                        <span>Smart Voice Intake</span>
+                    </h3>
+                    <p>Initiate clinical transcription of medical visits with a single tap. Converts doctor dialogue into clean, formatted reports instantly.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">⏳</div>
+                        <span>Verifiable Timeline</span>
+                    </h3>
+                    <p>A chronological feed of all clinical records, complete with blockchain integrity check badges confirming absolute record authenticity.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">🔐</div>
+                        <span>Revocable Sharing</span>
+                    </h3>
+                    <p>Grant temporary medical access dynamically. Fully revoke access keys instantly, ensuring complete control over who views your files.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">🤖</div>
+                        <span>Local Clinical Copilot</span>
+                    </h3>
+                    <p>A secure medical QA chatbot running locally. Ask medical history questions securely without transmitting personal details to the cloud.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-logo">
+                <img src="/anampouch_logo_transparent.png" alt="AnamPouch Logo">
+                <span>AnamPouch</span>
+            </div>
+            <p>&copy; 2026 AnamPouch. Engineered for the Tokyo Clawathon. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ 
+            startOnLoad: true, 
+            theme: 'base',
+            themeVariables: {
+                fontFamily: 'Inter, system-ui, sans-serif',
+                primaryColor: '#F8FAFC',
+                primaryTextColor: '#1A3A5C',
+                lineColor: '#2D5A8E',
+                actorBorder: '#E2E8F0',
+                signalColor: '#64748B',
+                tertiaryColor: '#FBFCFD'
+            }
+        });
+    </script>
+</body>
+</html>
+

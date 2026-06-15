@@ -1,0 +1,38 @@
+sequenceDiagram
+    autonumber
+    participant P as Patient App
+    participant AI as AIProvider (Cloud)
+    participant W as Walrus
+    participant S as Seal Keyservers
+    participant C as SUI Move Contracts
+    participant D as Doctor Viewer
+
+    rect rgb(240,248,255)
+    Note over P,C: Flow A — Record Creation
+    P->>P: record audio + ASR
+    P->>P: redactPII(transcript)
+    P->>AI: summarize(redacted)
+    AI-->>P: StructuredSummary
+    P->>P: AES-encrypt(summary, data_key)
+    P->>S: wrap(data_key, policy)
+    S-->>P: seal_blob
+    P->>W: put(ciphertext)
+    W-->>P: blob_id
+    P->>C: record_anchor::create_anchor(hash, blob_id, policy_id, hospital_id, ts)
+    C-->>P: RecordCreated event + tx hash
+    end
+
+    rect rgb(255,248,240)
+    Note over P,D: Flow B — Authorized Read
+    P->>P: gen one_time_token, hash(token)
+    P->>C: access_grant::issue_grant(record, token_hash, scope, ttl)
+    C-->>P: AccessGrant (shared)
+    P-->>D: QR { record_id, grant_id, token_preimage, blob_id }
+    D->>C: access_grant::consume_grant(grant, token_preimage)
+    C-->>S: GrantConsumed event
+    D->>W: get(blob_id)
+    W-->>D: ciphertext
+    D->>S: unwrap(seal_blob)
+    S-->>D: data_key (after policy check)
+    D->>D: AES-decrypt → render (no download)
+    end

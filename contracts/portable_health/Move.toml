@@ -1,0 +1,15 @@
+[package]
+name = "portable_health"
+edition = "2024.beta"
+version = "0.1.0"
+authors = ["Clawathon Team"]
+
+[dependencies]
+# Sui framework auto-injected by CLI (matches local sui binary version).
+# Add explicit deps here only if needed (e.g. DeepBook).
+
+[addresses]
+portable_health = "0x0"
+
+[dev-addresses]
+portable_health = "0x0"

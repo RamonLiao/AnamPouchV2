@@ -1,0 +1,28 @@
+tasks/progress.md
+tasks/lessons.md
+
+# Secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# Move build
+contracts/**/build/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.env.*.local
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Claude
+.claude/
+CLAUDE.md
+.playwright-mcp/

@@ -1,0 +1,32 @@
+graph TD
+    PatientApp[Patient App<br/>RN / PWA]
+    DoctorViewer[Doctor Web Viewer]
+
+    subgraph OffChain
+      AIProvider[AIProvider<br/>OpenAI / Gemini / Local]
+      PIIRedactor[PII Redactor]
+      Walrus[(Walrus Blob)]
+      Seal[Seal Keyservers<br/>t-of-n]
+    end
+
+    subgraph Move
+      RecordAnchor[record_anchor]
+      AccessGrant[access_grant]
+      HospitalRegistry[hospital_registry<br/>v2]
+      Errors[errors]
+    end
+
+    PatientApp --> PIIRedactor --> AIProvider
+    PatientApp --> Walrus
+    PatientApp --> Seal
+    PatientApp --> RecordAnchor
+    PatientApp --> AccessGrant
+
+    DoctorViewer --> AccessGrant
+    DoctorViewer --> Walrus
+    DoctorViewer --> Seal
+
+    AccessGrant -.GrantConsumed event.-> Seal
+    RecordAnchor --> Errors
+    AccessGrant --> Errors
+    HospitalRegistry -.future DoctorCap.-> AccessGrant
