@@ -108,21 +108,28 @@ export async function restorePasskeySession(): Promise<PasskeySession | null> {
 
   const provider = makeProvider();
 
-  // Two sign+recover calls to uniquely identify the public key
-  const msg1 = new TextEncoder().encode('anampouch-recovery-1');
-  const msg2 = new TextEncoder().encode('anampouch-recovery-2');
+  // We stored the exact public key at registration, so a single sign+recover is
+  // enough: signAndRecover returns the candidate public keys consistent with the
+  // signature; pick the one matching what we saved. This avoids a second WebAuthn
+  // prompt (two calls can't run concurrently anyway — "A request is already
+  // pending" — and serial calls mean two dialogs the user must answer identically).
+  const msg = new TextEncoder().encode('anampouch-recovery-1');
+  const candidates = await PasskeyKeypair.signAndRecover(provider, msg);
 
-  const [pks1, pks2] = await Promise.all([
-    PasskeyKeypair.signAndRecover(provider, msg1),
-    PasskeyKeypair.signAndRecover(provider, msg2),
-  ]);
+  const storedHex = toHex(stored.publicKey);
+  const match = candidates.find((pk) => toHex(pk.toRawBytes()) === storedHex);
 
-  const commonPk = findCommonPublicKey(pks1, pks2);
+  // Fallback: stored pubkey not among candidates (e.g. credential created before
+  // we persisted the key). Do a second recovery and intersect, then re-persist.
+  let commonPk = match ?? null;
+  if (!commonPk) {
+    const msg2 = new TextEncoder().encode('anampouch-recovery-2');
+    const candidates2 = await PasskeyKeypair.signAndRecover(provider, msg2);
+    commonPk = findCommonPublicKey(candidates, candidates2);
+    saveCredential(stored.credentialId, commonPk.toRawBytes());
+  }
+
   const keypair = new PasskeyKeypair(commonPk.toRawBytes(), provider, stored.credentialId);
-
-  // Update stored public key in case it changed (shouldn't, but be safe)
-  saveCredential(stored.credentialId, commonPk.toRawBytes());
-
   return new PasskeySession(keypair);
 }
 

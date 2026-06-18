@@ -15,7 +15,6 @@ import { useState } from 'react';
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { getPatientSession, setPatientSession, WalletSession } from './patientSession';
 import { ZkLoginSession, clearZkLoginSession } from './zkLoginSession';
-import { clearPasskeySession } from './passkeySession';
 
 export interface AuthSession {
   authMethod: 'wallet' | 'zklogin' | 'passkey';
@@ -50,8 +49,11 @@ export function useAuthSession(): AuthSession {
   }
 
   function logout() {
+    // Drop the active session only. Do NOT clear the passkey credential — it is a
+    // persistent device identity; signing out shouldn't delete it any more than
+    // logging out of Google deletes the account. Use "Clear stored credentials"
+    // (AuthLogin) to explicitly forget the passkey.
     clearZkLoginSession();
-    clearPasskeySession();
     setPatientSession(new WalletSession());
     setNonWalletAddress(null);
   }
