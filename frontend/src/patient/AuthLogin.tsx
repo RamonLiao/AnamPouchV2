@@ -40,6 +40,10 @@ export function AuthLogin({ onSessionReady }: Props) {
   const navigate = useNavigate();
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string>('');
+  // In-flight guard: WebAuthn allows only one pending navigator.credentials
+  // request at a time. Without this, double-clicking fires concurrent calls →
+  // "A request is already pending". Blocks all three login buttons while busy.
+  const [busy, setBusy] = useState(false);
 
   // On mount: handle zkLogin callback OR restore passkey session
   useEffect(() => {
@@ -87,18 +91,28 @@ export function AuthLogin({ onSessionReady }: Props) {
   }, [onSessionReady]);
 
   async function handleGoogleLogin() {
+    if (busy) return;
+    setBusy(true);
     setStatus('Redirecting to Google...');
     setError('');
     try {
+      // Start every sign-in from a clean slate: drop any prior completed session
+      // and stale ephemeral key so an account switch can't leave sessionStorage in
+      // a mixed (address/proof/ephemeral desynced) state.
+      clearZkLoginSession();
       const { authUrl } = await initiateZkLogin();
       window.location.href = authUrl;
+      // Navigating away; leave busy=true so buttons stay disabled until unload.
     } catch (e) {
       setError(`Failed to start zkLogin: ${(e as Error).message}`);
       setStatus('');
+      setBusy(false);
     }
   }
 
   async function handlePasskeyRegister() {
+    if (busy) return;
+    setBusy(true);
     setStatus('Creating passkey...');
     setError('');
     try {
@@ -108,10 +122,14 @@ export function AuthLogin({ onSessionReady }: Props) {
     } catch (e) {
       setError(`Passkey registration failed: ${(e as Error).message}`);
       setStatus('');
+    } finally {
+      setBusy(false);
     }
   }
 
   async function handlePasskeyLogin() {
+    if (busy) return;
+    setBusy(true);
     setStatus('Authenticating with passkey...');
     setError('');
     try {
@@ -126,6 +144,8 @@ export function AuthLogin({ onSessionReady }: Props) {
     } catch (e) {
       setError(`Passkey authentication failed: ${(e as Error).message}`);
       setStatus('');
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -179,9 +199,12 @@ export function AuthLogin({ onSessionReady }: Props) {
             alignItems: 'center',
             justifyContent: 'center',
             gap: 10,
-            boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-          }} 
+            boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+            opacity: busy ? 0.6 : 1,
+            cursor: busy ? 'not-allowed' : 'pointer'
+          }}
           onClick={handleGoogleLogin}
+          disabled={busy}
         >
           <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.63-.06-1.25-.16-1.84H9v3.49h4.84a4.14 4.14 0 0 1-1.8 2.71v2.26h2.91a8.78 8.78 0 0 0 2.69-6.62z" fill="#4285F4"/><path d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.26c-.8.54-1.83.86-3.05.86-2.34 0-4.33-1.58-5.03-3.7H.95v2.3A8.99 8.99 0 0 0 9 18z" fill="#34A853"/><path d="M3.97 10.71a5.41 5.41 0 0 1 0-3.42V4.99H.95a8.99 8.99 0 0 0 0 8.02l3.02-2.3z" fill="#FBBC05"/><path d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59A8.99 8.99 0 0 0 9 0 8.99 8.99 0 0 0 .95 4.99L3.97 7.29c.7-2.13 2.69-3.71 5.03-3.71z" fill="#EA4335"/></svg>
           Continue with Google
@@ -196,10 +219,10 @@ export function AuthLogin({ onSessionReady }: Props) {
 
       {/* Option 3: Passkey */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
-        <button className="btn-secondary" onClick={handlePasskeyLogin} style={{ padding: '12px' }}>
+        <button className="btn-secondary" onClick={handlePasskeyLogin} disabled={busy} style={{ padding: '12px', opacity: busy ? 0.6 : 1, cursor: busy ? 'not-allowed' : 'pointer' }}>
           🔑 Passkey
         </button>
-        <button className="btn-secondary" onClick={handlePasskeyRegister} style={{ padding: '12px' }}>
+        <button className="btn-secondary" onClick={handlePasskeyRegister} disabled={busy} style={{ padding: '12px', opacity: busy ? 0.6 : 1, cursor: busy ? 'not-allowed' : 'pointer' }}>
           ✨ New Passkey
         </button>
       </div>
