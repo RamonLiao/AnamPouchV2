@@ -19,7 +19,7 @@ export interface FriendlyError {
   hint: string;
 }
 
-const NAMED: Record<string, FriendlyError> = {
+const NAMED = {
   ENotOwner: { code: 'NOT_OWNER', title: 'Not your record', hint: 'Only the patient who owns this record can perform that action.' },
   ETombstoned: { code: 'TOMBSTONED', title: 'Record was revoked', hint: 'This record has been deleted by the patient.' },
   EInvalidContentHash: { code: 'BAD_HASH', title: 'Invalid content hash', hint: 'Ciphertext hash must be 32 bytes (sha3-256).' },
@@ -37,12 +37,36 @@ const NAMED: Record<string, FriendlyError> = {
   EInvalidTokenHashLen: { code: 'BAD_TOKEN_HASH', title: 'Invalid token hash', hint: 'Token hash must be 32 bytes.' },
   ERecordMismatch: { code: 'MISMATCH', title: 'Wrong record', hint: 'QR code is for a different record.' },
   ERecordRevoked: { code: 'CASCADED', title: 'Record revoked', hint: 'Patient revoked this record after issuing the QR. Access denied.' },
+} satisfies Record<string, FriendlyError>;
+
+/**
+ * Fallback table for dry-run / resolution-stage aborts.
+ *
+ * dApp Kit resolves (dry-runs) a tx before the wallet signs. That path surfaces
+ *   "MoveAbort in 1st command, abort code: 0, in '0x..::access_grant::consume_grant' (line 171)"
+ * — no `#[error]` const name and no byte-string, so name matching above misses.
+ * Keyed `function:line`; lines track the deployed source map (update on republish).
+ */
+const BY_LOCATION: Record<string, FriendlyError> = {
+  // access_grant::consume_grant asserts (doctor consume path)
+  'consume_grant:168': NAMED.ERecordMismatch,
+  'consume_grant:169': NAMED.ERecordRevoked,
+  'consume_grant:170': NAMED.EGrantRevoked,
+  'consume_grant:171': NAMED.EGrantUsed,
+  'consume_grant:174': NAMED.EGrantExpired,
+  'consume_grant:177': NAMED.EInvalidToken,
 };
 
 export function explainMoveError(rawError: unknown): FriendlyError {
   const msg = String(rawError ?? '');
   for (const [name, friendly] of Object.entries(NAMED)) {
     if (msg.includes(name)) return friendly;
+  }
+  // Resolution/dry-run aborts carry no const name — match on function + line.
+  const loc = msg.match(/::(\w+)'\s*\(line\s+(\d+)\)/);
+  if (loc) {
+    const friendly = BY_LOCATION[`${loc[1]}:${loc[2]}`];
+    if (friendly) return friendly;
   }
   if (msg.includes('MoveAbort')) {
     return { code: 'MOVE_ABORT', title: 'Transaction failed', hint: 'On-chain check failed. Open dev console for details.' };
