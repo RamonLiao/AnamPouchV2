@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import type { SealCompatibleClient } from '@mysten/seal';
-import { queryRecordCreatedByPatient } from '../api/queries';
+import { queryRecordCreatedByPatient, queryRevokedRecordIds } from '../api/queries';
+import { buildRevokeAnchorTx } from '../api/recordAnchor';
 import { sealClient, suiJsonRpc, dAppKit } from '../lib/dappKit';
 import { getPatientSession } from '../lib/patientSession';
 import { viewOwnRecord, type ViewStage } from '../lib/patientPipeline';
 import { explainMoveError } from '../lib/errors';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import type { ObjectId, SuiAddress } from '../types/contracts';
 
 const STAGE_LABEL: Record<ViewStage, string> = {
@@ -27,14 +29,44 @@ interface ExpandState {
 export function RecordList() {
   const session = getPatientSession();
   const address = session.getAddress();
+  const qc = useQueryClient();
   const [expandedId, setExpandedId] = useState<ObjectId | null>(null);
   const [states, setStates] = useState<Record<string, ExpandState>>({});
+  const [pendingRevoke, setPendingRevoke] = useState<ObjectId | null>(null);
+  const [revokeBusy, setRevokeBusy] = useState(false);
+  const [revokeErr, setRevokeErr] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['records', address],
     enabled: !!address,
     queryFn: () => queryRecordCreatedByPatient(address as SuiAddress),
   });
+
+  const { data: revokedIds, isLoading: revokedLoading, error: revokedError } = useQuery({
+    queryKey: ['revokedRecords', address],
+    enabled: !!address,
+    queryFn: () => queryRevokedRecordIds(),
+  });
+  // Until the revoked set resolves we can't tell a live record from a tombstoned
+  // one, so we withhold the mutating actions (Share/Revoke) rather than offer an
+  // action that would MoveAbort on an already-revoked record.
+  const revokedKnown = revokedIds !== undefined;
+
+  async function handleRevoke(id: ObjectId) {
+    setRevokeBusy(true);
+    setRevokeErr(null);
+    try {
+      await session.signAndExecute(buildRevokeAnchorTx(id));
+      setPendingRevoke(null);
+      await qc.invalidateQueries({ queryKey: ['revokedRecords', address] });
+    } catch (e) {
+      const friendly = explainMoveError(e);
+      setRevokeErr(friendly.hint || (e as Error).message);
+      setPendingRevoke(null);
+    } finally {
+      setRevokeBusy(false);
+    }
+  }
 
   async function handleView(id: ObjectId) {
     if (expandedId === id) {
@@ -76,10 +108,19 @@ export function RecordList() {
   return (
     <div>
       <h2 style={{ fontSize: 20, marginBottom: 20, color: 'var(--primary)' }}>Your Health Records</h2>
+      {revokeErr && (
+        <p style={{ color: 'var(--error)', fontWeight: 600, marginBottom: 16 }}>⚠️ {revokeErr}</p>
+      )}
+      {revokedError && (
+        <p style={{ color: 'var(--error)', fontWeight: 600, marginBottom: 16 }}>
+          ⚠️ Couldn't load revocation status; sharing is disabled until this loads.
+        </p>
+      )}
       <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
         {data.records.map((id) => {
           const st = states[id];
           const expanded = expandedId === id;
+          const isRevoked = revokedIds?.has(id) ?? false;
           const busy = expanded && st && st.stage !== 'done' && st.stage !== 'error';
           return (
             <li key={id} style={{
@@ -94,7 +135,15 @@ export function RecordList() {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Visit Record</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Visit Record</span>
+                    {isRevoked && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 6,
+                        background: 'var(--error-soft)', color: 'var(--error)',
+                      }}>Revoked</span>
+                    )}
+                  </div>
                   <code className="code-inset" style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis' }}>{id}</code>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
@@ -109,9 +158,24 @@ export function RecordList() {
                   >
                     {busy ? '⏳ …' : expanded ? '▲ Hide' : '👁 View'}
                   </button>
-                  <Link to={`/patient/share/${id}`} className="btn-secondary" style={{ fontSize: 13, padding: '8px 16px' }}>
-                    📤 Share via QR
-                  </Link>
+                  {revokedKnown && !isRevoked && (
+                    <>
+                      <Link to={`/patient/share/${id}`} className="btn-secondary" style={{ fontSize: 13, padding: '8px 16px' }}>
+                        📤 Share via QR
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setPendingRevoke(id)}
+                        className="btn-secondary"
+                        style={{ fontSize: 13, padding: '8px 16px', color: 'var(--error)' }}
+                      >
+                        🗑 Revoke
+                      </button>
+                    </>
+                  )}
+                  {revokedLoading && (
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', alignSelf: 'center' }}>…</span>
+                  )}
                 </div>
               </div>
 
@@ -147,6 +211,17 @@ export function RecordList() {
           );
         })}
       </ul>
+
+      <ConfirmDialog
+        open={pendingRevoke !== null}
+        destructive
+        busy={revokeBusy}
+        title="Revoke this record?"
+        message="This tombstones the record on-chain and cascades: every grant you've issued for it becomes unusable immediately. This cannot be undone."
+        confirmLabel="Revoke"
+        onConfirm={() => pendingRevoke && handleRevoke(pendingRevoke)}
+        onCancel={() => !revokeBusy && setPendingRevoke(null)}
+      />
     </div>
   );
 }

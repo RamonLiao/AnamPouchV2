@@ -7,6 +7,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { dAppKit } from './lib/dappKit';
 import { PatientShell } from './patient/Shell';
 import { RecordList } from './patient/RecordList';
+import { GrantList } from './patient/GrantList';
 import { RecordCreate } from './patient/RecordCreate';
 import { RecordShare } from './patient/RecordShare';
 import { DoctorShell } from './doctor/Shell';
@@ -23,6 +24,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/" element={<Navigate to="/patient" replace />} />
             <Route path="/patient" element={<PatientShell />}>
               <Route index element={<RecordList />} />
+              <Route path="grants" element={<GrantList />} />
               <Route path="new" element={<RecordCreate />} />
               <Route path="share/:recordId" element={<RecordShare />} />
             </Route>

@@ -81,3 +81,87 @@ export async function queryRecordCreatedByPatient(
     nextCursor: res.nextCursor ? JSON.stringify(res.nextCursor) : null,
   };
 }
+
+/**
+ * Drain ALL pages of an event type. Status sets (revoked/used) MUST be
+ * complete — a missed GrantRevoked event would mislabel a dead grant as Active
+ * and offer a revoke that MoveAborts. Single-page truncation is therefore a
+ * correctness bug here, not just a perf cap. Safe bound: stop after MAX_PAGES
+ * to avoid an unbounded loop on a pathological history (logged if hit).
+ */
+const PAGE_LIMIT = 50;
+const MAX_PAGES = 40; // 2000 events; raise + switch to indexer if ever hit
+
+async function drainEvents(eventType: string): Promise<{ parsedJson?: unknown }[]> {
+  const out: { parsedJson?: unknown }[] = [];
+  let cursor: { txDigest: string; eventSeq: string } | null = null;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const res = await jsonRpc.queryEvents({
+      query: { MoveEventType: eventType },
+      cursor,
+      limit: PAGE_LIMIT,
+      order: 'descending',
+    });
+    out.push(...res.data);
+    if (!res.hasNextPage || !res.nextCursor) return out;
+    cursor = res.nextCursor as { txDigest: string; eventSeq: string };
+  }
+  console.warn(`drainEvents(${eventType}) hit MAX_PAGES=${MAX_PAGES}; results may be truncated — migrate to an indexer.`);
+  return out;
+}
+
+/** Record ids tombstoned via revoke_anchor (RecordRevoked event scan). */
+export async function queryRevokedRecordIds(): Promise<Set<ObjectId>> {
+  const data = await drainEvents(CONTRACT.events.recordRevoked);
+  return new Set(
+    data.map((e) => (e.parsedJson as { record_id: ObjectId }).record_id),
+  );
+}
+
+export interface IssuedGrantRow {
+  grantId: ObjectId;
+  recordId: ObjectId;
+  scope: number;
+  expiresAtMs: string;
+}
+
+/**
+ * List grants a patient issued, via GrantIssued event scan (grants are SHARED
+ * objects so owned-object queries don't apply). Status (used/revoked/expired)
+ * is derived client-side from the revoked/consumed id sets — see grantStatus.ts.
+ */
+export async function queryGrantsIssuedByPatient(
+  patient: SuiAddress,
+): Promise<IssuedGrantRow[]> {
+  const data = await drainEvents(CONTRACT.events.grantIssued);
+  return data
+    .map((e) => e.parsedJson as {
+      grant_id: ObjectId;
+      record_id: ObjectId;
+      issuer: string;
+      scope: number;
+      expires_at_ms: string;
+    })
+    .filter((p) => p.issuer === patient)
+    .map((p) => ({
+      grantId: p.grant_id,
+      recordId: p.record_id,
+      scope: Number(p.scope),
+      expiresAtMs: String(p.expires_at_ms),
+    }));
+}
+
+async function scanGrantIdSet(eventType: string): Promise<Set<ObjectId>> {
+  const data = await drainEvents(eventType);
+  return new Set(
+    data.map((e) => (e.parsedJson as { grant_id: ObjectId }).grant_id),
+  );
+}
+
+export function queryRevokedGrantIds(): Promise<Set<ObjectId>> {
+  return scanGrantIdSet(CONTRACT.events.grantRevoked);
+}
+
+export function queryConsumedGrantIds(): Promise<Set<ObjectId>> {
+  return scanGrantIdSet(CONTRACT.events.grantConsumed);
+}

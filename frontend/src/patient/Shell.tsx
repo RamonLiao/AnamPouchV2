@@ -23,6 +23,7 @@ export function PatientShell() {
       {auth.isAuthenticated && (
         <nav style={{ marginBottom: 32, display: 'flex', gap: 8, background: 'var(--primary-soft)', padding: 6, borderRadius: 12, width: 'fit-content' }}>
           <Link to="/patient" className="nav-link">Records</Link>
+          <Link to="/patient/grants" className="nav-link">Grants</Link>
           <Link to="/patient/new" className="nav-link">+ New visit</Link>
         </nav>
       )}
