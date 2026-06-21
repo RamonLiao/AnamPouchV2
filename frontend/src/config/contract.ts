@@ -81,5 +81,5 @@ export const WALRUS = {
 
 export const GEMINI = {
   apiKey: import.meta.env.VITE_GEMINI_API_KEY ?? '',
-  model: import.meta.env.VITE_GEMINI_MODEL ?? 'gemini-2.0-flash-exp',
+  model: import.meta.env.VITE_GEMINI_MODEL ?? 'gemini-flash-latest',
 };

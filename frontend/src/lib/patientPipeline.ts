@@ -33,6 +33,12 @@ export interface ViewOwnRecordDeps {
   sealCompatibleClient: SealCompatibleClient;
   sealClient: Pick<SealClient, 'decrypt'>;
   onStage?: (s: ViewStage) => void;
+  /**
+   * Reports whether the record carries an encrypted image, derived from the same
+   * anchor fetch viewOwnRecord already does — lets the UI show/hide the
+   * "Decrypt image" action without an extra RPC.
+   */
+  onHasImage?: (hasImage: boolean) => void;
   /** Override aggregator (tests). */
   walrusAggregator?: string;
 }
@@ -107,6 +113,8 @@ export async function viewOwnRecord(deps: ViewOwnRecordDeps): Promise<string> {
   });
   const fields = recordObj?.data?.content?.fields;
   if (!fields) throw new Error('record object missing content');
+
+  deps.onHasImage?.(decodeBlobIdBytes(fields.image_blob_id ?? []) !== '');
 
   const blobId = decodeBlobIdBytes(fields.walrus_blob_id ?? []);
   if (!blobId) throw new Error('record has no walrus_blob_id');

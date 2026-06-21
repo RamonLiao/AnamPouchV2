@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import type { SealCompatibleClient } from '@mysten/seal';
@@ -28,22 +28,27 @@ interface ExpandState {
 
 interface ImageState {
   stage: ViewStage;
-  objectUrl?: string;
+  blob?: Blob;
   err?: string;
 }
 
-/** Component that displays a decrypted image and revokes its object URL on unmount. */
-function DecryptedImage({ objectUrl, alt }: { objectUrl: string; alt: string }) {
-  const urlRef = useRef(objectUrl);
+/**
+ * Displays a decrypted image. Owns the object-URL lifecycle: creates it from the
+ * blob inside the effect and revokes on cleanup. This survives React StrictMode's
+ * mount→cleanup→mount cycle (which would otherwise revoke a URL passed in as a
+ * prop before the second mount could load it → ERR_FILE_NOT_FOUND).
+ */
+function DecryptedImage({ blob, alt }: { blob: Blob; alt: string }) {
+  const [url, setUrl] = useState<string>();
   useEffect(() => {
-    urlRef.current = objectUrl;
-    return () => {
-      URL.revokeObjectURL(urlRef.current);
-    };
-  }, [objectUrl]);
+    const objectUrl = URL.createObjectURL(blob);
+    setUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [blob]);
+  if (!url) return null;
   return (
     <img
-      src={objectUrl}
+      src={url}
       alt={alt}
       style={{ maxWidth: '100%', borderRadius: 8, marginTop: 8 }}
     />
@@ -57,6 +62,9 @@ export function RecordList() {
   const [expandedId, setExpandedId] = useState<ObjectId | null>(null);
   const [states, setStates] = useState<Record<string, ExpandState>>({});
   const [imageStates, setImageStates] = useState<Record<string, ImageState>>({});
+  // Whether each expanded record carries an image (learned from the text-decrypt
+  // anchor fetch). undefined = not yet known → don't show the image action.
+  const [imageAvail, setImageAvail] = useState<Record<string, boolean>>({});
   const [pendingRevoke, setPendingRevoke] = useState<ObjectId | null>(null);
   const [revokeBusy, setRevokeBusy] = useState(false);
   const [revokeErr, setRevokeErr] = useState<string | null>(null);
@@ -113,6 +121,7 @@ export function RecordList() {
         sealCompatibleClient: dAppKit.getClient() as unknown as SealCompatibleClient,
         sealClient,
         onStage: (stage) => update({ stage }),
+        onHasImage: (hasImage) => setImageAvail((prev) => ({ ...prev, [id]: hasImage })),
       });
       update({ stage: 'done', plaintext });
     } catch (e) {
@@ -125,7 +134,7 @@ export function RecordList() {
     // If already decrypted, toggle — but images are shown below text, not toggled separately.
     // Re-clicking just re-decrypts (cheap no-op: we guard with objectUrl).
     const existing = imageStates[id];
-    if (existing?.objectUrl) return; // already have it
+    if (existing?.blob) return; // already have it
 
     if (!address) return;
     const updateImg = (s: ImageState) => setImageStates((prev) => ({ ...prev, [id]: s }));
@@ -148,8 +157,7 @@ export function RecordList() {
       const imgBytes = new Uint8Array(bytes.byteLength);
       imgBytes.set(bytes);
       const blob = new Blob([imgBytes]); // let browser sniff mime type
-      const objectUrl = URL.createObjectURL(blob);
-      updateImg({ stage: 'done', objectUrl });
+      updateImg({ stage: 'done', blob });
     } catch (e) {
       const friendly = explainMoveError(e);
       updateImg({ stage: 'error', err: friendly.hint || (e as Error).message });
@@ -220,7 +228,7 @@ export function RecordList() {
                   >
                     {busy ? '⏳ …' : expanded ? '▲ Hide' : '👁 View'}
                   </button>
-                  {expanded && st?.stage === 'done' && !imgSt?.objectUrl && (
+                  {expanded && st?.stage === 'done' && imageAvail[id] && !imgSt?.blob && (
                     <button
                       type="button"
                       onClick={() => handleViewImage(id)}
@@ -289,8 +297,8 @@ export function RecordList() {
                       <span className="pulse">⏳</span> {STAGE_LABEL[imgSt.stage]}
                     </p>
                   )}
-                  {imgSt?.objectUrl && (
-                    <DecryptedImage objectUrl={imgSt.objectUrl} alt="Decrypted visit image" />
+                  {imgSt?.blob && (
+                    <DecryptedImage blob={imgSt.blob} alt="Decrypted visit image" />
                   )}
                 </div>
               )}

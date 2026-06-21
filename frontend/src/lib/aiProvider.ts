@@ -78,7 +78,7 @@ export class GeminiProvider implements AIProvider {
 
   async summarize(req: SummarizeRequest): Promise<SummarizeResponse> {
     const t0 = performance.now();
-    const model = this.opts.model ?? 'gemini-2.0-flash-exp';
+    const model = this.opts.model ?? 'gemini-flash-latest';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.opts.apiKey}`;
     const res = await fetch(url, {
       method: 'POST',

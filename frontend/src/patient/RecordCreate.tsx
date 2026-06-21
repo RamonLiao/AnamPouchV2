@@ -39,6 +39,7 @@ export function RecordCreate() {
 
   // Photo/upload state
   const [pendingImage, setPendingImage] = useState<Uint8Array | null>(null);
+  const [imageName, setImageName] = useState<string | null>(null);
   const [ocrBusy, setOcrBusy] = useState(false);
 
   // ASR state
@@ -235,6 +236,7 @@ export function RecordCreate() {
         <label htmlFor="photo-upload" className="input-label" style={{ display: 'block', marginBottom: 8 }}>
           📷 Upload or Capture Medical Document (OCR)
         </label>
+        {/* Native input is visually hidden; the styled label below is the trigger. */}
         <input
           id="photo-upload"
           type="file"
@@ -242,9 +244,20 @@ export function RecordCreate() {
           capture="environment"
           aria-label="Upload or capture a medical document image for OCR"
           disabled={ocrBusy || submitting || recording}
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            padding: 0,
+            margin: -1,
+            overflow: 'hidden',
+            clip: 'rect(0,0,0,0)',
+            border: 0,
+          }}
           onChange={async (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
+            setImageName(file.name);
             setOcrBusy(true);
             setErr(null);
             try {
@@ -265,6 +278,29 @@ export function RecordCreate() {
             }
           }}
         />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <label
+            htmlFor="photo-upload"
+            className="btn-secondary"
+            aria-disabled={ocrBusy || submitting || recording}
+            style={{
+              cursor: ocrBusy || submitting || recording ? 'not-allowed' : 'pointer',
+              opacity: ocrBusy || submitting || recording ? 0.6 : 1,
+              fontSize: 13,
+              padding: '8px 16px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            {pendingImage ? '🔄 Choose Another' : '📁 Choose Image'}
+          </label>
+          {imageName && (
+            <span style={{ fontSize: 13, color: 'var(--text-muted)', wordBreak: 'break-all' }}>
+              {imageName}
+            </span>
+          )}
+        </div>
         {ocrBusy && (
           <p style={{ fontSize: 12, color: 'var(--primary)', marginTop: 8, margin: 0 }}>
             ⏳ Extracting text from image…
