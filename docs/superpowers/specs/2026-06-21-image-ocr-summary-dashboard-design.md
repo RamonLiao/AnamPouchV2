@@ -50,7 +50,7 @@ public struct RecordAnchor has key, store {
 - `create_anchor` 多收 `kind`、`image_blob_id`、`covered_count` 三參數。現有文字 caller 傳 `kind=0, image_blob_id=空, covered_count=0`。
 - **不新增 mutable update fn**。Summary 更新 = `create_anchor(kind=1,...)` 生新的 + `revoke_anchor(舊)`。
 - `seal_approve` / `seal_approve_owner` / `access_grant` / `decryption_ticket` **全部不動**。
-- 新增事件 `SummaryUpdated { record_id, patient, covered_count, created_at_ms }`,前端用它查「最新 summary」。
+- **`RecordCreated` 事件加 `kind` 欄位**(MF1):`create_anchor` 一律 emit `RecordCreated`,summary 也走 `create_anchor(kind=1)` 也會 emit。若事件不帶 `kind`,現有 `queryRecordCreatedByPatient`(RecordList / dashboard 病歷列表)會把 summary 當普通病歷列出。→ record 查詢 filter `kind===0`,summary 查詢 filter `kind===1`。**不另開 `SummaryUpdated` 事件**(RecordCreated 帶 kind 已足夠)。
 - `kind` / `covered_count` 為純展示欄位,**不得**被 `seal_approve` / `consume_grant` 信任(access control 不依賴它們)。
 
 ## Section 2 — 前端 pipeline / OCR 流程
@@ -95,8 +95,8 @@ api/recordAnchor.ts   (改) create_anchor PTB 多傳 3 參數
 
 - record 上鏈 + 導到 share 頁照舊;summary 更新背景跑。
 - summary 更新失敗**不得**讓 record 建立失敗(僅 log / 角落提示)。
-- **並發防護**:summary 更新加前端鎖(同時只跑一個),後到的排隊用最新狀態重生,避免版本鏈分叉。
-- demo 量級先不做 debounce。
+- **並發防護(MF2)**:前端鎖只防單一 tab,屬 best-effort 優化;多裝置 / refresh 中斷 / 鎖遺失仍可能讓鏈上同時存在多個未 tombstone 的 summary(版本鏈分叉)。**正確性靠讀取端 deterministic 選取**:dashboard 掃所有 `kind=1` anchor,排除 tombstone 後取 `created_at_ms` 最大那筆為「最新」。舊分叉是無害 stale,owner 可 revoke。(沿用既有 grant-status「從事件集合 derive 狀態」哲學。)
+- demo 量級先不做 debounce(已知:auto-summary 每筆 record = 建 record + 建 summary + revoke 舊 summary = 3 筆交易、3+ 事件,`drainEvents` 的 `MAX_PAGES` 上限會更快撞到 → 日後 debounce / indexer)。
 
 ## Section 3 — Patient Dashboard
 
@@ -104,7 +104,8 @@ api/recordAnchor.ts   (改) create_anchor PTB 多傳 3 參數
 
 ```
 DashboardPage
-  → 讀鏈上該病人所有 active RecordAnchor(kind=0)+ 最新 summary anchor(kind=1)
+  → 讀鏈上該病人所有 active RecordAnchor(RecordCreated filter kind=0)
+  → 最新 summary = 掃 kind=1 anchor、排除 tombstone、取 created_at_ms 最大那筆(MF2)
   → 鏈上可驗證區(免解密):診斷筆數、covered_count、時間線(visit_timestamp)、最後更新
   → 「解密摘要」按鈕 → seal_approve_owner 自解最新 summary → 顯示自然語言濃縮
   → 趨勢/統計:診斷頻率時間軸(用鏈上 timestamp,免解密即可畫)
@@ -133,6 +134,7 @@ DashboardPage
 
 ## 風險與已知限制
 
+- **JSON-RPC 2026-07-31 永久停用(Protocol 126,距今約 6 週)。** 本功能加重 JSON-RPC event-scan 依賴。所有新掃描**必須**留在 `frontend/src/api/queries.ts` 一個檔(沿用既有隔離),日後換 gRPC/GraphQL/indexer 是單檔遷移。全 app 既有迫近風險,非本功能引入。
 - 重部署 testnet → 舊 record 不受影響,但 `frontend/.env.local` 的 `VITE_PORTABLE_HEALTH_PACKAGE_ID` 要更新為新 `published-at`,且 dev server 必須重啟(見 lessons 2026-05-02)。
 - `explainMoveError` 的行號映射綁 deployed source map,重部署改行號要更新 guard test。
 - Gemini API key 需放 `VITE_*`(前端可見)→ demo 可接受;production 應走後端代理(deferred)。
