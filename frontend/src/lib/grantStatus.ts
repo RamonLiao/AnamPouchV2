@@ -49,5 +49,5 @@ export function deriveGrantStatus(
  * (used/revoked) are non-revocable.
  */
 export function isRevocable(status: GrantStatus): boolean {
-  return status === 'active';
+  return status === 'active' || status === 'expired';
 }
