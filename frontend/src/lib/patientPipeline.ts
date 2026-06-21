@@ -37,26 +37,20 @@ export interface ViewOwnRecordDeps {
   walrusAggregator?: string;
 }
 
-export async function viewOwnRecord(deps: ViewOwnRecordDeps): Promise<string> {
+/**
+ * Core decrypt helper: decrypts an arbitrary blobId under a record's
+ * content_hash (same IBE id for both text and image blobs).
+ *
+ * @returns raw decrypted bytes — caller decides how to interpret them.
+ */
+export async function decryptRecordBlob(
+  blobId: string,
+  contentHashBytes: number[],
+  deps: Omit<ViewOwnRecordDeps, 'recordId'> & { recordId: ObjectId },
+): Promise<Uint8Array> {
   const stage = (s: ViewStage) => deps.onStage?.(s);
 
   stage('fetching');
-  const recordObj: any = await deps.suiClient.getObject({
-    id: deps.recordId,
-    options: { showContent: true },
-  });
-  const fields = recordObj?.data?.content?.fields;
-  if (!fields) throw new Error('record object missing content');
-
-  const blobIdBytes: number[] = fields.walrus_blob_id ?? [];
-  const blobId = new TextDecoder().decode(new Uint8Array(blobIdBytes));
-  if (!blobId) throw new Error('record has no walrus_blob_id');
-
-  const contentHashBytes: number[] = fields.content_hash ?? [];
-  if (contentHashBytes.length !== 32) {
-    throw new Error('record content_hash missing or wrong length');
-  }
-
   const cipher = await fetchBlob(blobId, deps.walrusAggregator ?? WALRUS.aggregatorUrl);
 
   stage('session');
@@ -91,8 +85,70 @@ export async function viewOwnRecord(deps: ViewOwnRecordDeps): Promise<string> {
     txBytes,
   });
 
+  return plaintextBytes;
+}
+
+/** Decode a walrus blobId stored as TextEncoder bytes (number[]). Returns empty string if empty. */
+export function decodeBlobIdBytes(bytes: number[]): string {
+  if (!bytes || bytes.length === 0) return '';
+  return new TextDecoder().decode(new Uint8Array(bytes));
+}
+
+export async function viewOwnRecord(deps: ViewOwnRecordDeps): Promise<string> {
+  const stage = (s: ViewStage) => deps.onStage?.(s);
+
+  // Fetch anchor to resolve blobId + contentHash.
+  // (Stage 'fetching' is emitted by decryptRecordBlob; we pre-set it here for
+  //  the object fetch before we have the blobId.)
+  stage('fetching');
+  const recordObj: any = await deps.suiClient.getObject({
+    id: deps.recordId,
+    options: { showContent: true },
+  });
+  const fields = recordObj?.data?.content?.fields;
+  if (!fields) throw new Error('record object missing content');
+
+  const blobId = decodeBlobIdBytes(fields.walrus_blob_id ?? []);
+  if (!blobId) throw new Error('record has no walrus_blob_id');
+
+  const contentHashBytes: number[] = fields.content_hash ?? [];
+  if (contentHashBytes.length !== 32) {
+    throw new Error('record content_hash missing or wrong length');
+  }
+
+  const plaintextBytes = await decryptRecordBlob(blobId, contentHashBytes, deps);
+
   stage('done');
   return new TextDecoder().decode(plaintextBytes);
+}
+
+/**
+ * Decrypt and return the image blob attached to a record as raw bytes.
+ * Returns null if the record has no image_blob_id.
+ */
+export async function viewOwnImage(deps: ViewOwnRecordDeps): Promise<Uint8Array | null> {
+  const stage = (s: ViewStage) => deps.onStage?.(s);
+
+  stage('fetching');
+  const recordObj: any = await deps.suiClient.getObject({
+    id: deps.recordId,
+    options: { showContent: true },
+  });
+  const fields = recordObj?.data?.content?.fields;
+  if (!fields) throw new Error('record object missing content');
+
+  const imageBlobId = decodeBlobIdBytes(fields.image_blob_id ?? []);
+  if (!imageBlobId) return null; // no image attached
+
+  const contentHashBytes: number[] = fields.content_hash ?? [];
+  if (contentHashBytes.length !== 32) {
+    throw new Error('record content_hash missing or wrong length');
+  }
+
+  const imageBytes = await decryptRecordBlob(imageBlobId, contentHashBytes, deps);
+
+  stage('done');
+  return imageBytes;
 }
 
 /** Deps injected by the caller — allows fakes in tests. */
