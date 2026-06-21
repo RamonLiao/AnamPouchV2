@@ -48,11 +48,14 @@ export async function regenerateSummary(args: RegenerateSummaryArgs): Promise<{ 
   }
 }
 
-// Single in-flight lock: prevents concurrent triggers from forking the version chain (best-effort, single tab).
-let inflight: Promise<unknown> | null = null;
-export async function runSummaryExclusive<T>(fn: () => Promise<T>): Promise<T> {
-  while (inflight) { try { await inflight; } catch { /* ignore prior rejection */ } }
-  const p = fn();
-  inflight = p;
-  try { return await p; } finally { if (inflight === p) inflight = null; }
+// Chained-promise exclusive lock: serializes calls, never wedges on rejection, each caller gets its own result.
+export function makeExclusiveLock() {
+  let chain: Promise<unknown> = Promise.resolve();
+  return function runExclusive<T>(fn: () => Promise<T>): Promise<T> {
+    const result = chain.then(fn, fn); // run fn regardless of prior settle
+    chain = result.catch(() => {});    // tail never rejects → lock never wedges
+    return result;
+  };
 }
+
+export const runSummaryExclusive = makeExclusiveLock();
