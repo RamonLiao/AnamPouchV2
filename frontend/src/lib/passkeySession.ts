@@ -37,11 +37,16 @@ function saveCredential(credentialId: Uint8Array, publicKey: Uint8Array): void {
   localStorage.setItem(STORAGE_KEY_PUBKEY, toHex(publicKey));
 }
 
-function loadCredential(): { credentialId: Uint8Array; publicKey: Uint8Array } | null {
-  const credHex = localStorage.getItem(STORAGE_KEY_CRED_ID);
+/** pubkey-only cache for the discoverable-login fast-path (no credentialId). */
+function savePublicKey(publicKey: Uint8Array): void {
+  localStorage.setItem(STORAGE_KEY_PUBKEY, toHex(publicKey));
+}
+
+function loadCredential(): { credentialId: Uint8Array | null; publicKey: Uint8Array } | null {
   const pkHex = localStorage.getItem(STORAGE_KEY_PUBKEY);
-  if (!credHex || !pkHex) return null;
-  return { credentialId: fromHex(credHex), publicKey: fromHex(pkHex) };
+  if (!pkHex) return null;
+  const credHex = localStorage.getItem(STORAGE_KEY_CRED_ID);
+  return { credentialId: credHex ? fromHex(credHex) : null, publicKey: fromHex(pkHex) };
 }
 
 export function clearPasskeySession(): void {
@@ -71,6 +76,9 @@ function makeProvider(): BrowserPasskeyProvider {
     authenticatorSelection: {
       authenticatorAttachment: 'platform',
       userVerification: 'required',
+      // Discoverable credential: the OS remembers the key, so a fresh browser /
+      // incognito tab with no localStorage can still recover it via signAndRecover.
+      residentKey: 'required',
     },
   });
 }
@@ -126,11 +134,54 @@ export async function restorePasskeySession(): Promise<PasskeySession | null> {
     const msg2 = new TextEncoder().encode('anampouch-recovery-2');
     const candidates2 = await PasskeyKeypair.signAndRecover(provider, msg2);
     commonPk = findCommonPublicKey(candidates, candidates2);
-    saveCredential(stored.credentialId, commonPk.toRawBytes());
+    if (stored.credentialId) {
+      saveCredential(stored.credentialId, commonPk.toRawBytes());
+    } else {
+      savePublicKey(commonPk.toRawBytes());
+    }
   }
 
-  const keypair = new PasskeyKeypair(commonPk.toRawBytes(), provider, stored.credentialId);
+  const keypair = new PasskeyKeypair(
+    commonPk.toRawBytes(),
+    provider,
+    stored.credentialId ?? undefined,
+  );
   return new PasskeySession(keypair);
+}
+
+/**
+ * Storage-less login. Recovers the public key directly from the OS passkey with
+ * NO prior localStorage reference, so a fresh browser / incognito tab (where the
+ * discoverable credential still exists at the OS level) can log back in.
+ *
+ * Sui addresses are hash(public key) and WebAuthn assertions don't carry the
+ * public key, so we recover it the canonical SIP-9 way: sign two distinct
+ * messages, intersect the candidate public keys. `findCommonPublicKey` throws if
+ * the intersection isn't unique — we never guess an address from an ambiguous set.
+ *
+ * Costs two WebAuthn prompts. The two calls MUST be serial — WebAuthn allows only
+ * one pending `navigator.credentials` request ("A request is already pending").
+ */
+export async function loginPasskeyDiscoverable(): Promise<PasskeySession> {
+  const provider = makeProvider();
+
+  const candidates1 = await PasskeyKeypair.signAndRecover(
+    provider,
+    new TextEncoder().encode('anampouch-recovery-1'),
+  );
+  const candidates2 = await PasskeyKeypair.signAndRecover(
+    provider,
+    new TextEncoder().encode('anampouch-recovery-2'),
+  );
+  const pubKey = findCommonPublicKey(candidates1, candidates2);
+
+  // Cache only the pubkey so a later same-browser login takes the single-prompt
+  // fast-path. credentialId isn't available from discoverable recovery; drop any
+  // stale one so restore doesn't pair this pubkey with the wrong credential.
+  localStorage.removeItem(STORAGE_KEY_CRED_ID);
+  savePublicKey(pubKey.toRawBytes());
+
+  return new PasskeySession(new PasskeyKeypair(pubKey.toRawBytes(), provider));
 }
 
 // ─────────────── PatientSession adapter ──────────────────────────────────────

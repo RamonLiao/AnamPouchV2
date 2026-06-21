@@ -26,7 +26,11 @@ vi.mock('@mysten/sui/keypairs/passkey', () => ({
   findCommonPublicKey: h.findCommonPublicKey,
 }));
 
-import { PasskeySession, restorePasskeySession } from './passkeySession';
+import {
+  PasskeySession,
+  restorePasskeySession,
+  loginPasskeyDiscoverable,
+} from './passkeySession';
 
 function pubkey(bytes: number[]) {
   return { toRawBytes: () => new Uint8Array(bytes) };
@@ -89,5 +93,55 @@ describe('restorePasskeySession', () => {
     expect(h.findCommonPublicKey).toHaveBeenCalledTimes(1);
     // re-persisted the recovered key
     expect(localStorage.getItem('passkey_public_key')).toBe('9999');
+  });
+
+  it('restores from a pubkey-only cache (no credentialId) — discoverable fast-path', async () => {
+    // Only the pubkey is cached (e.g. a prior discoverable login). Must NOT bail.
+    localStorage.setItem('passkey_public_key', 'aabb');
+    h.signAndRecover.mockResolvedValueOnce([pubkey([0xaa, 0xbb])]);
+
+    const session = await restorePasskeySession();
+
+    expect(session).not.toBeNull();
+    expect(h.signAndRecover).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('loginPasskeyDiscoverable', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    h.signAndRecover.mockReset();
+    h.findCommonPublicKey.mockReset();
+  });
+
+  it('recovers storage-less via two signed messages + intersection', async () => {
+    h.signAndRecover
+      .mockResolvedValueOnce([pubkey([0x11, 0x22]), pubkey([0xab, 0xcd])])
+      .mockResolvedValueOnce([pubkey([0x33, 0x44]), pubkey([0xab, 0xcd])]);
+    h.findCommonPublicKey.mockReturnValue(pubkey([0xab, 0xcd]));
+
+    const session = await loginPasskeyDiscoverable();
+
+    expect(session).not.toBeNull();
+    // TWO prompts — intersection requires two distinct signatures; this is the
+    // documented cost of cross-browser login with no stored pubkey.
+    expect(h.signAndRecover).toHaveBeenCalledTimes(2);
+    expect(h.findCommonPublicKey).toHaveBeenCalledTimes(1);
+    // Caches pubkey for the next single-prompt fast-path, and stores NO stale credId.
+    expect(localStorage.getItem('passkey_public_key')).toBe('abcd');
+    expect(localStorage.getItem('passkey_credential_id')).toBeNull();
+  });
+
+  it('propagates when intersection is ambiguous (never guesses an address)', async () => {
+    h.signAndRecover
+      .mockResolvedValueOnce([pubkey([0x11, 0x22])])
+      .mockResolvedValueOnce([pubkey([0x33, 0x44])]);
+    h.findCommonPublicKey.mockImplementation(() => {
+      throw new Error('no common public key');
+    });
+
+    await expect(loginPasskeyDiscoverable()).rejects.toThrow('no common public key');
+    // Nothing persisted on failure.
+    expect(localStorage.getItem('passkey_public_key')).toBeNull();
   });
 });

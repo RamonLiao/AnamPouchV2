@@ -23,6 +23,7 @@ import {
 import {
   registerPasskey,
   restorePasskeySession,
+  loginPasskeyDiscoverable,
   clearPasskeySession,
 } from '../lib/passkeySession';
 import { restorePendingConsume } from '../lib/consumeLink';
@@ -133,11 +134,13 @@ export function AuthLogin({ onSessionReady }: Props) {
     setStatus('Authenticating with passkey...');
     setError('');
     try {
-      const session = await restorePasskeySession();
+      // Fast-path: same-browser login from cached pubkey (single prompt).
+      let session = await restorePasskeySession();
       if (!session) {
-        setError('No passkey found for this device. Register first.');
-        setStatus('');
-        return;
+        // Fresh browser / cleared storage: no local reference, but the OS passkey
+        // may still exist. Recover it directly (two prompts).
+        setStatus('No local key — checking device passkeys (two prompts)…');
+        session = await loginPasskeyDiscoverable();
       }
       setPatientSession(session);
       onSessionReady();

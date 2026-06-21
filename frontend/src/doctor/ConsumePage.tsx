@@ -193,12 +193,12 @@ export function ConsumePage() {
         </button>
 
         {stage !== 'idle' && (
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 10, 
-            padding: '8px 16px', 
-            background: stage === 'error' ? 'var(--error-soft)' : 'var(--primary-soft)', 
+          <div style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
+            padding: '8px 16px',
+            background: stage === 'error' ? 'var(--error-soft)' : 'var(--primary-soft)',
             borderRadius: 12,
             border: `1px solid ${stage === 'error' ? 'var(--error)' : 'var(--primary-light)'}`,
             fontSize: 13,
@@ -212,7 +212,9 @@ export function ConsumePage() {
             ) : (
               <span>✅</span>
             )}
-            {stage === 'error' ? `Error: ${err}` : STAGE_LABEL[stage]}
+            <span style={{ minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+              {stage === 'error' ? `Error: ${err}` : STAGE_LABEL[stage]}
+            </span>
           </div>
         )}
       </div>

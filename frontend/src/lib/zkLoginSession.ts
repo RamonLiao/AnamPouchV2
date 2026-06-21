@@ -172,6 +172,9 @@ export async function initiateZkLogin(
     response_type: 'id_token',
     scope: 'openid email profile',
     nonce,
+    // Always show the account chooser so a signed-out user can pick a different
+    // Google account instead of being silently re-authed into the cached one.
+    prompt: 'select_account',
   });
 
   return { authUrl: `https://accounts.google.com/o/oauth2/v2/auth?${params}` };
