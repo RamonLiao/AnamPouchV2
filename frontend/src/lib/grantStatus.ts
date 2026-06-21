@@ -40,14 +40,18 @@ export function deriveGrantStatus(
 }
 
 /**
- * Whether the Revoke button should be offered. Mirrors the on-chain
- * `revoke_grant` guards, which reject ONLY already-used or already-revoked
- * grants — expiry is NOT a guard there. Crucially, `expired` here is judged by
- * the client clock; if that clock runs fast a still-live grant looks expired,
- * so gating revoke on it would strand a grant the doctor can still consume.
- * Therefore expired stays revocable; only the event-confirmed terminal states
- * (used/revoked) are non-revocable.
+ * Whether the Revoke button should be offered. Only `active` grants are
+ * revocable — used/revoked are terminal, and an expired grant can no longer be
+ * consumed on-chain (the Clock guard in consume_grant rejects it), so revoke
+ * would be a pointless gas-burning no-op.
+ *
+ * KNOWN TRADE-OFF (revisit later): `expired` here is judged by the untrusted
+ * client clock. If that clock runs fast, a grant the doctor can STILL consume
+ * on-chain shows as "Expired" and loses its Revoke button (stranded). Two
+ * future options under discussion: (1) keep hiding revoke on expired [current];
+ * (2) stop using the client clock to label expiry at all and let the chain be
+ * the sole authority, keeping revoke always available. See tasks/notes.md.
  */
 export function isRevocable(status: GrantStatus): boolean {
-  return status === 'active' || status === 'expired';
+  return status === 'active';
 }

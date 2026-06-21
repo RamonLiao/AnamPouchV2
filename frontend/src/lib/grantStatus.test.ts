@@ -44,13 +44,14 @@ describe('deriveGrantStatus', () => {
 });
 
 describe('isRevocable', () => {
-  it('blocks only event-confirmed terminal states (used/revoked)', () => {
-    // WHY: revoke_grant aborts ONLY on used/revoked — offering revoke there
-    // is a guaranteed MoveAbort. Expiry is NOT an on-chain guard and is judged
-    // by the (untrusted) client clock, so an "expired" grant must stay
-    // revocable: a fast client clock could otherwise strand a still-live grant.
+  it('offers revoke only for active grants', () => {
+    // WHY: used/revoked are terminal; an expired grant can no longer be
+    // consumed on-chain, so revoking it is a pointless gas-burning no-op.
+    // KNOWN TRADE-OFF (revisit, see tasks/notes.md): expiry is judged by the
+    // untrusted client clock, so a fast clock can strand a still-consumable
+    // grant. Accepted for now in favor of cleaner UX.
     expect(isRevocable('active')).toBe(true);
-    expect(isRevocable('expired')).toBe(true);
+    expect(isRevocable('expired')).toBe(false);
     expect(isRevocable('used')).toBe(false);
     expect(isRevocable('revoked')).toBe(false);
   });
