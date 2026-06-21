@@ -36,6 +36,10 @@ export async function createImageRecord(args: CreateImageRecordArgs): Promise<{
   textBlobId: string;
   imageBlobId: string;
 }> {
+  // Guard: encryptForRecord rejects empty payload; check here to avoid uploading
+  // an orphan image blob before the text pipeline rejects.
+  if (args.redactedText.length === 0) throw new Error('redactedText is empty');
+
   // Scheme A: image is encrypted under the same IBE id as the text.
   // The IBE id = sha256(redactedText) as 0x-prefixed lowercase hex,
   // identical to what createEncryptedRecord derives internally.

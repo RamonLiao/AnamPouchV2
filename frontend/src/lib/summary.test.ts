@@ -48,6 +48,45 @@ describe('runSummaryExclusive', () => {
     const p = run<number>(() => Promise.reject(new Error('mine')));
     await expect(p).rejects.toThrow('mine');
   });
+
+  // ── Monkey: 10 rapid concurrent calls ────────────────────────────────────────
+  it('10 concurrent calls run strictly in order, none lost', async () => {
+    const run = makeExclusiveLock();
+    const executed: number[] = [];
+    const promises = Array.from({ length: 10 }, (_, i) =>
+      run<number>(async () => { executed.push(i); return i; }),
+    );
+    const results = await Promise.all(promises);
+    // All returned correct value
+    expect(results).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    // Executed in enqueue order (chained, not parallel)
+    expect(executed).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  });
+
+  it('10 concurrent calls with one rejecting in the middle — rest still run', async () => {
+    const run = makeExclusiveLock();
+    const executed: number[] = [];
+    const promises = Array.from({ length: 10 }, (_, i) =>
+      run<number>(async () => {
+        executed.push(i);
+        if (i === 4) throw new Error(`fail-${i}`);
+        return i;
+      }),
+    );
+    const settled = await Promise.allSettled(promises);
+    // Call 4 rejected
+    expect(settled[4]!.status).toBe('rejected');
+    expect((settled[4] as PromiseRejectedResult).reason.message).toBe('fail-4');
+    // All others fulfilled
+    for (let i = 0; i < 10; i++) {
+      if (i !== 4) {
+        expect(settled[i]!.status).toBe('fulfilled');
+        expect((settled[i] as PromiseFulfilledResult<number>).value).toBe(i);
+      }
+    }
+    // All 10 functions executed — rejection does not wedge subsequent calls
+    expect(executed).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  });
 });
 
 describe('regenerateSummary', () => {
@@ -72,5 +111,48 @@ describe('regenerateSummary', () => {
     const out = await regenerateSummary({ ...base, ...d });
     expect(out).toBeNull();
     expect(d.revokeOld).not.toHaveBeenCalled();
+  });
+
+  // ── Monkey ───────────────────────────────────────────────────────────────────
+
+  it('returns null for empty decryptedRecords (no anchor, no revoke)', async () => {
+    const d = deps();
+    const out = await regenerateSummary({ ...base, decryptedRecords: [], ...d });
+    expect(out).toBeNull();
+    expect(d.createSummaryAnchor).not.toHaveBeenCalled();
+    expect(d.revokeOld).not.toHaveBeenCalled();
+  });
+
+  it('returns null when gemini returns whitespace-only', async () => {
+    const d = deps({ gemini: vi.fn(async () => '  \t\n  ') });
+    const out = await regenerateSummary({ ...base, ...d });
+    expect(out).toBeNull();
+    expect(d.createSummaryAnchor).not.toHaveBeenCalled();
+  });
+
+  it('handles record with empty text among many — does not crash', async () => {
+    const records = [
+      { text: '', visitMs: 1n },
+      { text: '發燒', visitMs: 2n },
+      { text: '', visitMs: 3n },
+      { text: '頭痛', visitMs: 4n },
+    ];
+    const d = deps();
+    const out = await regenerateSummary({ ...base, decryptedRecords: records, ...d });
+    // gemini called once, anchor created, no crash
+    expect(d.gemini).toHaveBeenCalledTimes(1);
+    expect(out?.recordId).toBe('0xnew');
+    // coveredCount = 4 (all records, including empty-text ones)
+    expect(d.createSummaryAnchor).toHaveBeenCalledWith(
+      expect.objectContaining({ coveredCount: 4n }));
+  });
+
+  it('handles very large coveredCount (100000 records) — BigInt conversion correct', async () => {
+    const records = Array.from({ length: 100000 }, (_, i) => ({ text: `r${i}`, visitMs: BigInt(i) }));
+    const d = deps();
+    const out = await regenerateSummary({ ...base, decryptedRecords: records, ...d });
+    expect(out?.recordId).toBe('0xnew');
+    expect(d.createSummaryAnchor).toHaveBeenCalledWith(
+      expect.objectContaining({ coveredCount: 100000n }));
   });
 });
