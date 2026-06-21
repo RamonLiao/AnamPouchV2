@@ -66,8 +66,35 @@ function enokiZkpDevProxy(apiKey: string): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   return {
-    plugins: [react(), enokiZkpDevProxy(env.ENOKI_API_KEY ?? '')],
+    plugins: [
+      react(),
+      enokiZkpDevProxy(env.ENOKI_API_KEY ?? ''),
+      {
+        name: 'spa-rewrite',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (req.url) {
+              const url = req.url.split('?')[0] || '';
+              if (url === '/patient' || url.startsWith('/patient/') ||
+                  url === '/doctor' || url.startsWith('/doctor/') ||
+                  url === '/zklogin' || url.startsWith('/zklogin/')) {
+                req.url = '/app.html' + (req.url.includes('?') ? '?' + req.url.split('?')[1] : '');
+              }
+            }
+            next();
+          });
+        }
+      }
+    ],
     server: { port: 5173 },
-    build: { target: 'es2022' },
+    build: {
+      target: 'es2022',
+      rollupOptions: {
+        input: {
+          main: 'index.html',
+          app: 'app.html',
+        }
+      }
+    },
   };
 });

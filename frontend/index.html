@@ -1,17 +1,726 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>AnamPouch — Portable Health</title>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnamPouch - Your Portable AI Medical Assistant</title>
     <link rel="icon" href="/anampouch_logo_transparent.png">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <meta name="theme-color" content="#7FC5E3">
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2D5A8E;
+            --primary-light: #7FC5E3;
+            --primary-soft: #EBF5FB;
+            --accent: #B5E5E0;
+            --accent-soft: #F0F9F8;
+            --bg: #FBFCFD;
+            --card-bg: #ffffff;
+            --text: #1A3A5C;
+            --text-muted: #64748B;
+            --border: #E2E8F0;
+            --radius: 16px;
+            --radius-sm: 8px;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+            --shadow-lg: 0 10px 25px -5px rgb(45 90 142 / 0.08), 0 8px 10px -6px rgb(45 90 142 / 0.08);
+            --font-family: 'Inter', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: var(--font-family);
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+            background-image:
+                radial-gradient(at 0% 0%, rgba(235, 245, 251, 0.75) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(240, 249, 248, 0.75) 0px, transparent 50%),
+                linear-gradient(rgba(251, 252, 253, 0.9), rgba(251, 252, 253, 0.9)),
+                url('/anampouch_bg.png');
+            background-size: 100% auto, 100% auto, cover, cover;
+            background-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
+            background-position: top left, top right, center, center;
+            background-attachment: fixed;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Nav */
+        header {
+            padding: 1rem 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            background-color: rgba(251, 252, 253, 0.8);
+            backdrop-filter: blur(16px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 100;
+            transition: all 0.3s ease;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .logo img {
+            height: 58px;
+            width: auto;
+            transition: transform 0.3s ease;
+        }
+
+        .logo:hover img {
+            transform: rotate(-5deg) scale(1.05);
+        }
+
+        nav {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--primary);
+            background-color: var(--primary-soft);
+        }
+
+        .header-cta {
+            display: flex;
+            align-items: center;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            text-decoration: none;
+            font-size: 0.95rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, #3d79b8 100%);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 14px rgba(45, 90, 142, 0.15);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(45, 90, 142, 0.25);
+            opacity: 0.95;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--primary);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-secondary:hover {
+            background: var(--primary-soft);
+            border-color: var(--primary-light);
+            transform: translateY(-2px);
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            background: var(--accent-soft);
+            color: var(--primary);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            border: 1px solid var(--accent);
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+            animation: fadeUp 1s ease-out;
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 8rem 5% 4rem;
+            position: relative;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4.2rem);
+            font-weight: 800;
+            color: var(--text);
+            margin-bottom: 1.2rem;
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            animation: fadeUp 1s ease-out 0.1s backwards;
+        }
+
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: clamp(1.05rem, 1.8vw, 1.35rem);
+            color: var(--text-muted);
+            max-width: 750px;
+            margin-bottom: 2.5rem;
+            animation: fadeUp 1s ease-out 0.3s backwards;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 1rem;
+            animation: fadeUp 1s ease-out 0.4s backwards;
+        }
+
+        /* Section Global */
+        section {
+            padding: 6rem 5%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--text);
+            margin-bottom: 3.5rem;
+            position: relative;
+        }
+
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px;
+            height: 4px;
+            background: var(--primary-light);
+            border-radius: 2px;
+        }
+
+        /* Cards Layout */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(127, 197, 227, 0.2);
+            border-radius: var(--radius);
+            padding: 2.5rem;
+            box-shadow: 0 10px 30px -5px rgba(45, 90, 142, 0.04), 0 4px 6px -2px rgba(45, 90, 142, 0.02);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Mascot Buddy Animations */
+        @keyframes mascotFloat {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+            100% { transform: translateY(0); }
+        }
+
+        @keyframes mascotWiggle {
+            0%, 100% { transform: rotate(0) scale(1); }
+            25% { transform: rotate(-8deg) scale(1.05); }
+            75% { transform: rotate(8deg) scale(1.05); }
+        }
+
+        @keyframes bubblePop {
+            0% { opacity: 0; transform: scale(0.8) translateY(10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        @keyframes flip3D {
+            0% { transform: rotateY(0); }
+            100% { transform: rotateY(360deg); }
+        }
+
+        @keyframes particleFade {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            100% { transform: translate(var(--x), var(--y)) scale(0.5); opacity: 0; }
+        }
+
+        .mascot-float {
+            animation: mascotFloat 4s ease-in-out infinite;
+        }
+
+        .mascot-wiggle-hover {
+            transition: transform 0.3s ease;
+        }
+        .mascot-wiggle-hover:hover {
+            animation: mascotWiggle 0.6s ease-in-out;
+        }
+
+        .bubble-pop {
+            animation: bubblePop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .flip-3d {
+            animation: flip3D 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .particle-fade {
+            animation: particleFade 1s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: transparent;
+            transition: background-color 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-6px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary-light);
+        }
+
+        .card:hover::before {
+            background: var(--primary);
+        }
+
+        .card h3 {
+            font-size: 1.35rem;
+            margin-bottom: 1rem;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .card p {
+            color: var(--text-muted);
+            font-size: 0.98rem;
+            line-height: 1.6;
+        }
+
+        .icon-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            background: var(--primary-soft);
+            font-size: 1.3rem;
+        }
+
+        /* Mermaid Block */
+        .mermaid-container {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 3rem 2rem;
+            box-shadow: var(--shadow);
+            overflow-x: auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        .mermaid {
+            width: 100%;
+            max-width: 800px;
+            background: white;
+        }
+
+        /* Animations */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Footer */
+        footer {
+            background: white;
+            border-top: 1px solid var(--border);
+            padding: 4rem 5% 3rem;
+            color: var(--text-muted);
+            font-size: 0.92rem;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 2rem;
+        }
+
+        .footer-logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .footer-logo img {
+            height: 36px;
+        }
+
+        @media (max-width: 768px) {
+            header {
+                padding: 1rem;
+            }
+            nav {
+                display: none; /* Mobile navigation simplified */
+            }
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            .hero {
+                padding-top: 7rem;
+            }
+            .hero-actions {
+                flex-direction: column;
+                width: 100%;
+                max-width: 320px;
+            }
+            .btn {
+                width: 100%;
+            }
+            .footer-content {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="#" class="logo">
+            <img src="/anampouch_logo_transparent.png" alt="AnamPouch Logo">
+            <span>AnamPouch</span>
+        </a>
+        <nav>
+            <a href="#problem" class="nav-link">Problem & Solution</a>
+            <a href="#architecture" class="nav-link">System Architecture</a>
+            <a href="#features" class="nav-link">Core Features</a>
+        </nav>
+        <div class="header-cta">
+            <a href="/patient" class="btn btn-primary">Launch App</a>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="badge">✨ Privacy-First Health Assistant</div>
+            <h1>Your Medical History, Fully Under <span>Your Control</span></h1>
+            <p>True data sovereignty via on-device AI processing and decentralized blockchain verification. Secure, instant, and completely private.</p>
+            <div class="hero-actions">
+                <a href="/patient" class="btn btn-primary">Launch Application</a>
+                <a href="#problem" class="btn btn-secondary">Learn More</a>
+            </div>
+        </section>
+
+        <section id="problem">
+            <h2 class="section-title">Resolving Medical Data Silos</h2>
+            <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));">
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">⚠️</div>
+                        <span>The Problem</span>
+                    </h3>
+                    <p>Fragmented data silos prevent patients from maintaining a unified, continuous medical history. Traditional cloud AI processing risks exposing extremely sensitive personal clinical records to central servers.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">💡</div>
+                        <span>Our Solution</span>
+                    </h3>
+                    <p>AnamPouch locks medical records locally on your personal device. Utilizing secure edge AI for auto-summaries and blockchain for decentralized verification, we eliminate central data leaks once and for all.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="architecture">
+            <h2 class="section-title">Hybrid Architecture</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">🧠</div>
+                        <span>On-Device AI</span>
+                    </h3>
+                    <p>Lightweight, specialized local speech-to-text (ASR) and large language models (LLM) run offline on your device, processing consultations locally.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">🛡️</div>
+                        <span>Zero-Trust Storage</span>
+                    </h3>
+                    <p>Your medical data is encrypted client-side using robust cryptographic keys, keeping records completely private and invisible to third parties.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">⛓️</div>
+                        <span>Blockchain Proofs</span>
+                    </h3>
+                    <p>Tamper-proof cryptographic hashes are anchored directly to the Sui blockchain via OpenClaw, ensuring verified, immutability without revealing record contents.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">⏳</div>
+                        <span>Ephemeral Sharing</span>
+                    </h3>
+                    <p>Share records securely with doctors using time-bound, secure QR codes. Relies on decentralized peer verification; strictly view-only with no downloads.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="workflow">
+            <h2 class="section-title">Data Flow</h2>
+            <div class="mermaid-container">
+                <div class="mermaid">
+                    graph TD
+                        classDef default fill:#F8FAFC,stroke:#2D5A8E,stroke-width:2px,color:#1A3A5C,rx:8px,ry:8px
+                        classDef blockchain fill:#F0F9F8,stroke:#B5E5E0,stroke-width:2px,color:#1A3A5C,rx:8px,ry:8px
+                        classDef secure fill:#EBF5FB,stroke:#7FC5E3,stroke-width:2px,color:#1A3A5C,rx:8px,ry:8px
+
+                        A[Consultation Audio] -->|On-Device ASR| B(Transcribed Text)
+                        B -->|Local LLM| C(Clinical Summary)
+                        C --> D{Secure Encryption}
+
+                        D -->|Encrypted Blob| E[Smartphone Local Storage]:::secure
+                        D -->|Hash & Signatures| F[(Sui Blockchain / OpenClaw)]:::blockchain
+
+                        E -.->|Dynamic QR Auth| G[Ephemeral Viewer]
+                        G -.->|Temporary Access| H[Authorized Physician]
+                </div>
+            </div>
+        </section>
+
+        <section id="features">
+            <h2 class="section-title">Core Features</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">📊</div>
+                        <span>Dashboard</span>
+                    </h3>
+                    <p>A beautifully intuitive summary showing your current health status, active treatments, and AI-driven clinical action steps.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">🎙️</div>
+                        <span>Smart Voice Intake</span>
+                    </h3>
+                    <p>Initiate clinical transcription of medical visits with a single tap. Converts doctor dialogue into clean, formatted reports instantly.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">⏳</div>
+                        <span>Verifiable Timeline</span>
+                    </h3>
+                    <p>A chronological feed of all clinical records, complete with blockchain integrity check badges confirming absolute record authenticity.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">🔐</div>
+                        <span>Revocable Sharing</span>
+                    </h3>
+                    <p>Grant temporary medical access dynamically. Fully revoke access keys instantly, ensuring complete control over who views your files.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">🤖</div>
+                        <span>Local Clinical Copilot</span>
+                    </h3>
+                    <p>A secure medical QA chatbot running locally. Ask medical history questions securely without transmitting personal details to the cloud.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-logo">
+                <img src="/anampouch_logo_transparent.png" alt="AnamPouch Logo">
+                <span>AnamPouch</span>
+            </div>
+            <p>&copy; 2026 AnamPouch. Engineered for the Tokyo Clawathon. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Mascot Buddy -->
+    <div id="mascot-buddy-container" style="position: fixed; bottom: 24px; right: 24px; z-index: 1000; display: flex; flex-direction: column; align-items: center; font-family: var(--font-family); pointer-events: none;">
+        <!-- Speech Bubble -->
+        <div id="mascot-bubble" class="bubble-pop" style="display: none; background: rgba(255, 255, 255, 0.95); border: 1px solid var(--primary-light); border-radius: 16px; padding: 10px 14px; max-width: 220px; box-shadow: var(--shadow-lg); margin-bottom: 12px; position: relative; backdrop-filter: blur(8px); pointer-events: auto;">
+            <button id="mascot-bubble-close" style="position: absolute; top: 4px; right: 6px; background: none; border: none; color: var(--text-muted); font-size: 10px; cursor: pointer; padding: 2px; line-height: 1;">✕</button>
+            <p id="mascot-bubble-text" style="margin: 0; font-size: 13px; color: var(--text); padding-right: 8px; line-height: 1.4;"></p>
+            <div style="position: absolute; bottom: -6px; right: 28px; width: 10px; height: 10px; background: rgba(255, 255, 255, 0.95); border-bottom: 1px solid var(--primary-light); border-right: 1px solid var(--primary-light); transform: rotate(45deg);"></div>
+        </div>
+
+        <!-- Mascot Wrapper -->
+        <div id="mascot-wrapper" class="mascot-float mascot-wiggle-hover" style="width: 64px; height: 64px; cursor: pointer; position: relative; pointer-events: auto; user-select: none;">
+            <img src="/anampouch_logo_transparent.png" alt="AnamPouch Mascot" style="width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(45, 90, 142, 0.25)); transition: transform 0.3s ease;">
+            <button id="mascot-close" style="position: absolute; top: -2px; right: -2px; background: var(--primary); color: white; border: none; width: 16px; height: 16px; font-size: 9px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: var(--shadow-sm); padding: 0; border-radius: 50%;">✕</button>
+        </div>
+    </div>
+
+    <!-- Mini restore button if hidden -->
+    <button id="mascot-restore" style="display: none; position: fixed; bottom: 24px; right: 24px; z-index: 1000; background: rgba(255, 255, 255, 0.9); border: 1px solid var(--primary-light); border-radius: 50%; width: 44px; height: 44px; align-items: center; justify-content: center; cursor: pointer; box-shadow: var(--shadow); font-size: 18px; transition: all 0.2s;" title="Show Mascot Buddy">🩺</button>
+
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'base',
+            themeVariables: {
+                fontFamily: 'Inter, system-ui, sans-serif',
+                primaryColor: '#F8FAFC',
+                primaryTextColor: '#1A3A5C',
+                lineColor: '#2D5A8E',
+                actorBorder: '#E2E8F0',
+                signalColor: '#64748B',
+                tertiaryColor: '#FBFCFD'
+            }
+        });
+    </script>
+    <script>
+        (function() {
+            const container = document.getElementById('mascot-buddy-container');
+            const wrapper = document.getElementById('mascot-wrapper');
+            const bubble = document.getElementById('mascot-bubble');
+            const bubbleText = document.getElementById('mascot-bubble-text');
+            const bubbleClose = document.getElementById('mascot-bubble-close');
+            const mascotClose = document.getElementById('mascot-close');
+            const restoreBtn = document.getElementById('mascot-restore');
+
+            const quotes = [
+                "Welcome to AnamPouch! 🩺",
+                "Your medical records, fully under your control! 🔒",
+                "Decentralized storage via Walrus! 🐋",
+                "Verifiable integrity anchored to Sui! 🌊",
+                "Zero-knowledge privacy checks ready. 🛡️",
+                "Click on me to start a checkup! ✨",
+                "Stay hydrated and have a great day! 💧"
+            ];
+
+            function showRandomQuote() {
+                const rand = quotes[Math.floor(Math.random() * quotes.length)];
+                bubbleText.textContent = rand;
+                bubble.style.display = 'block';
+            }
+
+            // Show first quote after a delay
+            setTimeout(showRandomQuote, 2000);
+
+            wrapper.addEventListener('mouseenter', () => {
+                if (bubble.style.display === 'none') {
+                    showRandomQuote();
+                }
+            });
+
+            wrapper.addEventListener('click', (e) => {
+                // Play flip animation
+                wrapper.classList.add('flip-3d');
+                setTimeout(() => wrapper.classList.remove('flip-3d'), 800);
+
+                showRandomQuote();
+
+                // Spawn particles
+                const rect = wrapper.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const clickY = e.clientY - rect.top;
+
+                const chars = ['❤️', '➕', '✨', '🩹', '🌸'];
+                const colors = ['#EF4444', '#B5E5E0', '#7FC5E3', '#F59E0B', '#10B981'];
+
+                for (let i = 0; i < 6; i++) {
+                    const particle = document.createElement('span');
+                    particle.className = 'particle-fade';
+                    const angle = (Math.PI * 2 * i) / 6 + (Math.random() * 0.5 - 0.25);
+                    const distance = 40 + Math.random() * 40;
+                    const x = Math.cos(angle) * distance;
+                    const y = Math.sin(angle) * distance - 20;
+
+                    particle.textContent = chars[Math.floor(Math.random() * chars.length)];
+                    particle.style.position = 'absolute';
+                    particle.style.left = clickX + 'px';
+                    particle.style.top = clickY + 'px';
+                    particle.style.pointerEvents = 'none';
+                    particle.style.fontSize = '16px';
+                    particle.style.zIndex = '1001';
+                    particle.style.color = colors[Math.floor(Math.random() * colors.length)];
+                    particle.style.setProperty('--x', x + 'px');
+                    particle.style.setProperty('--y', y + 'px');
+
+                    wrapper.appendChild(particle);
+                    setTimeout(() => particle.remove(), 1000);
+                }
+            });
+
+            bubbleClose.addEventListener('click', (e) => {
+                e.stopPropagation();
+                bubble.style.display = 'none';
+            });
+
+            mascotClose.addEventListener('click', (e) => {
+                e.stopPropagation();
+                container.style.display = 'none';
+                restoreBtn.style.display = 'flex';
+            });
+
+            restoreBtn.addEventListener('click', () => {
+                restoreBtn.style.display = 'none';
+                container.style.display = 'flex';
+                setTimeout(showRandomQuote, 200);
+            });
+        })();
+    </script>
+</body>
 </html>

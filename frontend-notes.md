@@ -62,9 +62,36 @@
   6. **視覺微調（Logo 緊湊大氣化）**：應使用者反饋，將 Landing Page Header 的 Logo 圖片高度放大至 **`58px`**，品牌文字字體增至 **`1.75rem`**，並將圖片與文字間的距離縮減至緊湊的 **`6px`**，大幅消除視覺割裂感，使品牌 Lockup 更為渾然一體；Footer Logo 高度同步拉大至 **`36px`**。
   7. **患者端門戶（Patient Portal Logo 同步微調）**：同步修改 `Shell.tsx` 中的內部 Header Logo，寬高調增至 **`50px`**，圖文間距同樣縮減至 **`6px`** 以保持一致的品牌緊湊美感；登入頁 `AuthLogin.tsx` 中的原始 Logo 維持大器的 **`110px`** 尺寸。
 
+### 2.2 全域視覺與可愛互動 MascotBuddy 整合
+* **時間**：2026-06-21
+* **背景**：為了優化 hackathon 評審視覺體驗，豐富亮色醫療主題，並增加產品記憶點。
+* **調整內容**：
+  1. 將官方 `anampouch_bg.png` 引入為固定背景圖，配以半透明亮色遮罩，優化文字可讀性。
+  2. 新增全域卡片（`.card`）玻璃擬態樣式與軟邊框發光陰影。
+  3. 新增以去背 Logo 為核心的 `MascotBuddy` 吉祥物元件，常駐於主 App 與 Landing Page 右下角，支援呼吸浮動、氣泡提示關懷、點擊 3D 翻轉與噴灑愛心/醫療十字粒子效果。
+  4. 支持點擊 `✕` 隱藏與 `🩺` 重啟。
+  5. **首頁路由與多頁架構重組**：將 `landing.html` 升格為 `index.html` 作為預設首頁；將 React 入口移至 `app.html`，並相應配置 Vite dev 伺服器與 Vercel 路由重寫規則，使 App 門戶按鈕無縫跳轉，路由刷新不丟失。
+  6. **錢包下拉選單置頂**：設定 `.header-container` 的相對定位與 `z-index: 50`，徹底解決錢包「Connected accounts」懸浮選單被下方 `.card` 遮擋的問題。
+
+### 2.3 瀏覽器預渲染 (Prerendering) 造成錢包 Auto-connect 失敗修復
+* **時間**：2026-06-21
+* **背景**：當使用者在已登入的 `/patient` 頁面，於瀏覽器網址列手動將網址改為 `/doctor` 並按下 Enter 時，畫面會顯示未登入狀態，需手動重新整理（Refresh）才正常。
+* **原因**：Chrome 等現代瀏覽器會對網址列輸入的同站 URL 進行主動「預渲染（Prerender）」。在預渲染階段，出於安全與效能考量，瀏覽器**不會**載入並注入錢包擴充套件（Sui Wallet Extension）的 Content Scripts。當使用者按下 Enter 正式切換頁面時，瀏覽器直接將已預先執行完畢的預渲染頁面（Prerendered page）轉為可見，導致 React 應用掛載時檢測不到錢包，且後續未觸發 auto-connect。而手動重新整理（Refresh）則是強制的標準載入，會正常注入錢包套件並自動連線。
+* **解決方案**：在 `main.tsx` 最頂部引入預渲染監測與自動重新載入邏輯。如果檢測到當前文件正在進行預渲染（`document.prerendering === true`），則監聽 `prerenderingchange` 事件，並在頁面轉為可見時立即觸發 `window.location.reload()`；若頁面已被激活（`activationStart > 0`），同樣觸發一次重新載入，以強制瀏覽器進行正常載入並注入錢包套件，使 `dAppKit` 順利完成 auto-connect。
+
+### 2.4 醫生端未登入時隱藏導覽列
+* **時間**：2026-06-21
+* **背景**：當 Doctor 處於未登入狀態時，中間的「Consume Grant」與「Patient App →」導覽列不應顯示，避免未授權前暴露內部跳轉按鈕，且保持首頁與 Patient 登入界面的一致性。
+* **調整內容**：修改 `DoctorShell.tsx`，將整個 `<nav>` 用 `{auth.isAuthenticated && (...)}` 進行包裹，僅在醫生成功認證後才呈現導覽列。
+
+### 2.5 統一 Header Logo 與文字間距 (Gap)
+* **時間**：2026-06-21
+* **背景**：醫生端與患者端 Header 的 Logo 圖片與文字的間距存在細微差異（`8px` vs `6px`），導致視覺效果不一致。
+* **調整內容**：修改 `DoctorShell.tsx` 的 Header Logo 鏈接樣式，將 `gap` 調整為與 `PatientShell.tsx` 以及 Landing Page 完全相同的 `6` (即 `6px`)，確保全站品牌 Logo 呈現一致性。
+
 ---
 
 ## 3. 前端待辦事項 (TODO)
-* `[ ]` 設計更精緻的 Mobile Navigation menu (漢堡選單)，進一步提升行動端體驗。
+* `[ ]` 設計更精緻的 Mobile Navigation menu (漢堡選單)，進一步提升行動端体验。
 * `[ ]` 為 Landing page 卡片引入基於 scroll 的滾動淡入動畫 (Scroll-reveal effects)。
-* `[ ]` 確保主 App 路由與 `landing.html` 的轉換連結始終完美相容。
+* `[ ]` 確保主 App 路由與 `app.html` 的轉換連結始終完美相容。

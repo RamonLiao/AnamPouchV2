@@ -5,8 +5,28 @@
       "destination": "/api/:path*"
     },
     {
-      "source": "/:path*",
-      "destination": "/index.html"
+      "source": "/patient/:path*",
+      "destination": "/app.html"
+    },
+    {
+      "source": "/patient",
+      "destination": "/app.html"
+    },
+    {
+      "source": "/doctor/:path*",
+      "destination": "/app.html"
+    },
+    {
+      "source": "/doctor",
+      "destination": "/app.html"
+    },
+    {
+      "source": "/zklogin/:path*",
+      "destination": "/app.html"
+    },
+    {
+      "source": "/zklogin",
+      "destination": "/app.html"
     }
   ]
 }
