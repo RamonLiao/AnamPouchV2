@@ -16,10 +16,22 @@
 * **文字與排版 (Typography & Text)**
   * `--text`: `#1A3A5C` (深紺藍，標題與內文字)
   * `--text-muted`: `#64748B` (slate 灰色，次要描述文字)
+  * `主要字體 (UI)`: `'Inter', system-ui, -apple-system, sans-serif` (系統界面使用，傳遞清晰專業感)
+  * `品牌字體 (Logo / Header)`: `'Fredoka' / 'Quicksand'` (極具溫和親和力的圓角無襯線字體，用於 Logo 識別與社群橫幅)
 * **容器與邊界 (Containers & Borders)**
   * `--card-bg`: `#ffffff` (純白卡片底色)
   * `--border`: `#E2E8F0` (柔和灰色細邊框)
   * `--radius`: `16px` (大圓角，使 UI 更溫和易親近)
+
+### 1.3 品牌視覺資產 (Brand Visual Assets)
+所有視覺設計皆嚴格遵循亮色系醫療色彩系統（#FBFCFD, #EBF5FB, #F0F9F8, #2D5A8E），已存放於 `frontend/public/` 目錄下：
+* **官方 Logo**:
+  * [anampouch_logo_original.png](file:///Users/ramonliao/Documents/Code/Project/Web3/Hackathon/2026_Sui_Overflow/Tracks/3-Walrus/AnamPouchV2/frontend/public/anampouch_logo_original.png)：原始 Logo（帶白底與品牌副標）。
+  * [anampouch_logo_transparent.png](file:///Users/ramonliao/Documents/Code/Project/Web3/Hackathon/2026_Sui_Overflow/Tracks/3-Walrus/AnamPouchV2/frontend/public/anampouch_logo_transparent.png)：透明去背 Logo。
+* **背景與橫幅**:
+  * [anampouch_bg.png](file:///Users/ramonliao/Documents/Code/Project/Web3/Hackathon/2026_Sui_Overflow/Tracks/3-Walrus/AnamPouchV2/frontend/public/anampouch_bg.png)：dApp 主畫面背景，融入半透明醫療十字與流線波浪。
+  * [anampouch_twitter_banner.png](file:///Users/ramonliao/Documents/Code/Project/Web3/Hackathon/2026_Sui_Overflow/Tracks/3-Walrus/AnamPouchV2/frontend/public/anampouch_twitter_banner.png)：社群推特橫幅（卡片包裝版，帶 "Your Trusted Web3 Medical Companion" 標語）。
+  * [anampouch_social_banner.png](file:///Users/ramonliao/Documents/Code/Project/Web3/Hackathon/2026_Sui_Overflow/Tracks/3-Walrus/AnamPouchV2/frontend/public/anampouch_social_banner.png)：通用社群宣傳 Banner（無邊框滿版，帶 "Your Decentralized Medical Travel Wallet on Sui & Walrus" 標語）。
 
 ### 1.2 卡片微互動 (Card Micro-animations)
 所有的區塊卡片均應具備以下懸停（hover）反饋動畫，以確保操作時的動態高級感：
