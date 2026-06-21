@@ -15,7 +15,7 @@ const ENotOwner: vector<u8> = b"Caller is not the owner of this RecordAnchor";
 const ETombstoned: vector<u8> = b"RecordAnchor has already been revoked";
 
 #[error]
-const EInvalidContentHash: vector<u8> = b"content_hash must be 32 bytes (sha3-256)";
+const EInvalidContentHash: vector<u8> = b"content_hash must be 32 bytes (SHA-256)";
 
 #[error]
 const EEmptyBlobId: vector<u8> = b"walrus_blob_id must not be empty";
@@ -39,7 +39,7 @@ public struct RecordAnchor has key, store {
     id: UID,
     /// Address of the patient who owns this record.
     patient: address,
-    /// SHA3-256 hash of the Seal-wrapped ciphertext stored on Walrus.
+    /// SHA-256 hash of the Seal-wrapped ciphertext stored on Walrus.
     content_hash: vector<u8>,
     /// Walrus blob ID (opaque bytes).
     walrus_blob_id: vector<u8>,

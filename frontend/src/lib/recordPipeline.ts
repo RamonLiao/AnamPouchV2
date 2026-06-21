@@ -34,6 +34,11 @@ async function sha256(data: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(buf);
 }
 
+/** Single canonical implementation of the Scheme-A IBE id: 0x-prefixed lowercase SHA-256 hex. */
+export async function contentHashHex(data: Uint8Array): Promise<`0x${string}`> {
+  return bytesToHex(await sha256(data));
+}
+
 export async function createEncryptedRecord(args: CreateRecordArgs): Promise<CreateRecordResult> {
   // Hackathon simplification: derive Seal IBE id from sha256(plaintext) and
   // store the same hash on-chain as content_hash. Production path would be a

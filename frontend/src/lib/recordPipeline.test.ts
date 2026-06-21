@@ -1,6 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Transaction } from '@mysten/sui/transactions';
-import { createEncryptedRecord } from './recordPipeline';
+import { createEncryptedRecord, contentHashHex } from './recordPipeline';
+
+describe('contentHashHex', () => {
+  it('produces 0x-prefixed lowercase SHA-256 hex for known input', async () => {
+    // SHA-256("hello") = 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
+    const result = await contentHashHex(new TextEncoder().encode('hello'));
+    expect(result).toBe('0x2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824');
+  });
+});
 
 describe('createEncryptedRecord', () => {
   it('encrypts → uploads → publishes create_anchor and returns recordId+blobId', async () => {
