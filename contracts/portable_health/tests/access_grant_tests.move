@@ -16,7 +16,7 @@ fun preimage(): vector<u8> { b"super-secret-token-2026" }
 fun mk_record(s: &mut ts::Scenario, clk: &clock::Clock) {
     record_anchor::create_anchor(
         valid_hash(), b"walrusblob",
-        b"HOSP-001", 999_000, clk, s.ctx(),
+        b"HOSP-001", 999_000, 0, b"", 0, clk, s.ctx(),
     );
 }
 

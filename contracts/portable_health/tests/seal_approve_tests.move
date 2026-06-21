@@ -19,6 +19,7 @@ fun setup_record(s: &mut ts::Scenario): ID {
         b"blob1",
         b"hosp1",
         1_000,
+        0, b"", 0,
         &clk,
         ts::ctx(s),
     );

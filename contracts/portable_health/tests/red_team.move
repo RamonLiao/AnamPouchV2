@@ -19,7 +19,7 @@ fun token_hash(): vector<u8> { hash::sha3_256(preimage()) }
 fun mk_record(s: &mut ts::Scenario, clk: &clock::Clock) {
     record_anchor::create_anchor(
         valid_hash(), b"walrusblob",
-        b"HOSP-001", 999_000, clk, s.ctx(),
+        b"HOSP-001", 999_000, 0, b"", 0, clk, s.ctx(),
     );
 }
 
@@ -225,7 +225,7 @@ fun red_team_round_10_empty_hospital_id_rejected() {
     let mut clk = clock::create_for_testing(s.ctx());
     clk.set_for_testing(1_000_000);
     record_anchor::create_anchor(
-        valid_hash(), b"blob", b"", 0, &clk, s.ctx(),
+        valid_hash(), b"blob", b"", 0, 0, b"", 0, &clk, s.ctx(),
     );
     clock::destroy_for_testing(clk);
     s.end();
