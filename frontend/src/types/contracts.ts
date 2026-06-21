@@ -33,7 +33,13 @@ export interface RecordAnchorFields {
   visit_timestamp_ms: string; // u64 as decimal string from RPC
   created_at_ms: string;
   version: number;
+  kind: number;
+  image_blob_id: number[];
+  covered_count: string; // u64 as decimal string from RPC
 }
+
+export const RECORD_KIND = { Record: 0, Summary: 1 } as const;
+export type RecordKind = (typeof RECORD_KIND)[keyof typeof RECORD_KIND];
 
 export interface AccessGrantFields {
   id: { id: ObjectId };
@@ -56,6 +62,8 @@ export interface RecordCreatedEvent {
   hospital_id: number[];
   visit_timestamp_ms: string;
   created_at_ms: string;
+  kind: number;
+  covered_count: string;
 }
 
 export interface RecordRevokedEvent {

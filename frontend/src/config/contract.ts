@@ -78,3 +78,8 @@ export const WALRUS = {
   publisherUrl: import.meta.env.VITE_WALRUS_PUBLISHER ?? 'https://publisher.walrus-testnet.walrus.space',
   aggregatorUrl: import.meta.env.VITE_WALRUS_AGGREGATOR ?? 'https://aggregator.walrus-testnet.walrus.space',
 };
+
+export const GEMINI = {
+  apiKey: import.meta.env.VITE_GEMINI_API_KEY ?? '',
+  model: import.meta.env.VITE_GEMINI_MODEL ?? 'gemini-2.0-flash-exp',
+};

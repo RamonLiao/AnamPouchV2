@@ -9,6 +9,9 @@ export interface CreateRecordArgs {
   plaintext: Uint8Array;
   hospitalId: string;
   visitTimestampMs: bigint;
+  imageBlobId?: string;
+  kind?: number;
+  coveredCount?: bigint;
   sealClient: import('@mysten/seal').SealClient;
   walrus?: { upload: (data: Uint8Array) => Promise<string> };
   sui: {
@@ -53,6 +56,9 @@ export async function createEncryptedRecord(args: CreateRecordArgs): Promise<Cre
       tx.pure(bcs.vector(bcs.u8()).serialize(new TextEncoder().encode(blobId))),
       tx.pure(bcs.vector(bcs.u8()).serialize(new TextEncoder().encode(args.hospitalId))),
       tx.pure.u64(args.visitTimestampMs),
+      tx.pure.u8(args.kind ?? 0),
+      tx.pure(bcs.vector(bcs.u8()).serialize(new TextEncoder().encode(args.imageBlobId ?? ''))),
+      tx.pure.u64(args.coveredCount ?? 0n),
       tx.object(CLOCK_OBJECT_ID),
     ],
   });
