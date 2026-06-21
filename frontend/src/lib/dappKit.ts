@@ -50,3 +50,6 @@ const sealOptions: SealClientOptions = {
 };
 
 export const sealClient = new SealClient(sealOptions);
+
+/** The gRPC client cast to the SealCompatibleClient interface required by SessionKey.create. */
+export const sealCompatibleClient = dAppKit.getClient() as unknown as SealCompatibleClient;

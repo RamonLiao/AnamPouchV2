@@ -11,6 +11,8 @@ import { SessionKey, type SealClient, type SealCompatibleClient } from '@mysten/
 import { CONTRACT, SEAL, WALRUS } from '../config/contract';
 import { fetchBlob } from './walrus';
 import type { ObjectId } from '../types/contracts';
+import type { DecryptedRecord } from './summary';
+import { queryRecordCreatedByPatient } from '../api/queries';
 
 export type ViewStage =
   | 'idle'
@@ -91,4 +93,70 @@ export async function viewOwnRecord(deps: ViewOwnRecordDeps): Promise<string> {
 
   stage('done');
   return new TextDecoder().decode(plaintextBytes);
+}
+
+/** Deps injected by the caller — allows fakes in tests. */
+export interface LoadAllRecordsDeps {
+  address: string;
+  signPersonalMessage: (msg: Uint8Array) => Promise<{ signature: string }>;
+  suiClient: ViewOwnRecordDeps['suiClient'];
+  sealCompatibleClient: SealCompatibleClient;
+  sealClient: Pick<SealClient, 'decrypt'>;
+  /** Override Walrus aggregator URL (tests). */
+  walrusAggregator?: string;
+  /** Override the event query function (tests). */
+  listRecordIds?: (patient: string, cursor?: string | null) => Promise<{ records: ObjectId[]; nextCursor: string | null }>;
+}
+
+/**
+ * Drain all active (kind=0) record ids for a patient, decrypt each one via the
+ * owner path, and return a list of { text, visitMs } for summary generation.
+ *
+ * Failures on individual records are silently skipped so that a single corrupt
+ * blob cannot abort the whole summary.
+ */
+export async function loadAllDecryptedRecords(
+  deps: LoadAllRecordsDeps,
+): Promise<DecryptedRecord[]> {
+  const listFn = deps.listRecordIds ?? queryRecordCreatedByPatient;
+
+  // Drain all pages of kind=0 record ids.
+  const recordIds: ObjectId[] = [];
+  let cursor: string | null | undefined = undefined;
+  for (;;) {
+    const page = await listFn(deps.address as `0x${string}`, cursor);
+    recordIds.push(...page.records);
+    if (!page.nextCursor) break;
+    cursor = page.nextCursor;
+  }
+
+  // Decrypt each record; skip on failure.
+  const results: DecryptedRecord[] = [];
+  for (const recordId of recordIds) {
+    try {
+      // Fetch the anchor object to get visitTimestampMs.
+      const anchorRes: any = await deps.suiClient.getObject({
+        id: recordId,
+        options: { showContent: true },
+      });
+      const fields = anchorRes?.data?.content?.fields;
+      const visitMs: bigint = fields?.visit_timestamp_ms
+        ? BigInt(fields.visit_timestamp_ms)
+        : 0n;
+
+      const text = await viewOwnRecord({
+        recordId,
+        address: deps.address,
+        signPersonalMessage: deps.signPersonalMessage,
+        suiClient: deps.suiClient,
+        sealCompatibleClient: deps.sealCompatibleClient,
+        sealClient: deps.sealClient,
+        ...(deps.walrusAggregator !== undefined ? { walrusAggregator: deps.walrusAggregator } : {}),
+      });
+      results.push({ text, visitMs });
+    } catch (e) {
+      console.warn(`loadAllDecryptedRecords: skipping ${recordId}`, e);
+    }
+  }
+  return results;
 }

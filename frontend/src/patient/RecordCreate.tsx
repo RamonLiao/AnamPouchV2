@@ -6,10 +6,14 @@ import { createEncryptedRecord } from '../lib/recordPipeline';
 import { createImageRecord } from '../lib/imagePipeline';
 import { extractText } from '../lib/ocr';
 import { geminiGenerate } from '../lib/gemini';
-import { sealClient } from '../lib/dappKit';
+import { sealClient, sealCompatibleClient, suiJsonRpc } from '../lib/dappKit';
 import { getPatientSession, signAndGetObjectChanges } from '../lib/patientSession';
 import { isSpeechSupported, startAsr, type AsrSession } from '../lib/asr';
 import { GEMINI } from '../config/contract';
+import { regenerateSummary, runSummaryExclusive } from '../lib/summary';
+import { loadAllDecryptedRecords } from '../lib/patientPipeline';
+import { queryRevokedRecordIds, queryLatestSummary } from '../api/queries';
+import { buildRevokeAnchorTx } from '../api/recordAnchor';
 
 /**
  * Record-creation flow:
@@ -132,6 +136,46 @@ export function RecordCreate() {
         recordId = result.recordId;
         blobId = result.blobId;
       }
+      // Fire background summary regeneration — non-blocking, must never reject.
+      void runSummaryExclusive(async () => {
+        const decryptedRecords = await loadAllDecryptedRecords({
+          address: address!,
+          signPersonalMessage: (msg) => session.signPersonalMessage(msg),
+          suiClient: suiJsonRpc as any,
+          sealCompatibleClient,
+          sealClient,
+        });
+        const revoked = await queryRevokedRecordIds();
+        const old = await queryLatestSummary(address as `0x${string}`, revoked);
+        await regenerateSummary({
+          decryptedRecords,
+          language: 'zh-TW',
+          oldSummaryId: old?.recordId ?? null,
+          gemini: (prompt) =>
+            geminiGenerate({
+              apiKey: GEMINI.apiKey,
+              model: GEMINI.model,
+              systemPrompt: '',
+              parts: [{ text: prompt }],
+            }),
+          createSummaryAnchor: async ({ summaryText, coveredCount }) => {
+            const bytes = new TextEncoder().encode(summaryText);
+            return createEncryptedRecord({
+              plaintext: bytes,
+              hospitalId: 'summary',
+              visitTimestampMs: BigInt(Date.now()),
+              kind: 1,
+              coveredCount,
+              sealClient,
+              sui: { signAndExecute: (tx) => signAndGetObjectChanges(session, tx) },
+            });
+          },
+          revokeOld: async (oldId) => {
+            await signAndGetObjectChanges(session, buildRevokeAnchorTx(oldId));
+          },
+        });
+      });
+
       navigate(`/patient/share/${recordId}`, { state: { blobId } });
     } catch (e) {
       setErr(explainMoveError(e).hint);
