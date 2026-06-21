@@ -144,7 +144,10 @@ export function RecordList() {
         updateImg({ stage: 'done' }); // no image on this record
         return;
       }
-      const blob = new Blob([bytes.buffer as ArrayBuffer]); // let browser sniff mime type
+      // Copy into a fresh ArrayBuffer: exact view bytes only (no subarray padding) + satisfies BlobPart (no SharedArrayBuffer union).
+      const imgBytes = new Uint8Array(bytes.byteLength);
+      imgBytes.set(bytes);
+      const blob = new Blob([imgBytes]); // let browser sniff mime type
       const objectUrl = URL.createObjectURL(blob);
       updateImg({ stage: 'done', objectUrl });
     } catch (e) {
