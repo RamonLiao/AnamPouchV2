@@ -61,6 +61,7 @@ export function PatientShell() {
           <nav style={{ marginBottom: 32, display: 'flex', gap: 8, background: 'rgba(45, 90, 142, 0.05)', backdropFilter: 'blur(4px)', padding: 6, borderRadius: 12, width: 'fit-content' }}>
             <Link to="/patient" className="nav-link">Records</Link>
             <Link to="/patient/grants" className="nav-link">Grants</Link>
+            <Link to="/patient/dashboard" className="nav-link">Dashboard</Link>
             <Link to="/patient/new" className="nav-link">+ New visit</Link>
           </nav>
         )}

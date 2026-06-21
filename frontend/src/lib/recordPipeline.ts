@@ -9,6 +9,9 @@ export interface CreateRecordArgs {
   plaintext: Uint8Array;
   hospitalId: string;
   visitTimestampMs: bigint;
+  imageBlobId?: string;
+  kind?: number;
+  coveredCount?: bigint;
   sealClient: import('@mysten/seal').SealClient;
   walrus?: { upload: (data: Uint8Array) => Promise<string> };
   sui: {
@@ -29,6 +32,11 @@ async function sha256(data: Uint8Array): Promise<Uint8Array> {
   new Uint8Array(ab).set(data);
   const buf = await crypto.subtle.digest('SHA-256', ab);
   return new Uint8Array(buf);
+}
+
+/** Single canonical implementation of the Scheme-A IBE id: 0x-prefixed lowercase SHA-256 hex. */
+export async function contentHashHex(data: Uint8Array): Promise<`0x${string}`> {
+  return bytesToHex(await sha256(data));
 }
 
 export async function createEncryptedRecord(args: CreateRecordArgs): Promise<CreateRecordResult> {
@@ -53,6 +61,9 @@ export async function createEncryptedRecord(args: CreateRecordArgs): Promise<Cre
       tx.pure(bcs.vector(bcs.u8()).serialize(new TextEncoder().encode(blobId))),
       tx.pure(bcs.vector(bcs.u8()).serialize(new TextEncoder().encode(args.hospitalId))),
       tx.pure.u64(args.visitTimestampMs),
+      tx.pure.u8(args.kind ?? 0),
+      tx.pure(bcs.vector(bcs.u8()).serialize(new TextEncoder().encode(args.imageBlobId ?? ''))),
+      tx.pure.u64(args.coveredCount ?? 0n),
       tx.object(CLOCK_OBJECT_ID),
     ],
   });

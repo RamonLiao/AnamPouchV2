@@ -15,7 +15,7 @@ const ENotOwner: vector<u8> = b"Caller is not the owner of this RecordAnchor";
 const ETombstoned: vector<u8> = b"RecordAnchor has already been revoked";
 
 #[error]
-const EInvalidContentHash: vector<u8> = b"content_hash must be 32 bytes (sha3-256)";
+const EInvalidContentHash: vector<u8> = b"content_hash must be 32 bytes (SHA-256)";
 
 #[error]
 const EEmptyBlobId: vector<u8> = b"walrus_blob_id must not be empty";
@@ -39,7 +39,7 @@ public struct RecordAnchor has key, store {
     id: UID,
     /// Address of the patient who owns this record.
     patient: address,
-    /// SHA3-256 hash of the Seal-wrapped ciphertext stored on Walrus.
+    /// SHA-256 hash of the Seal-wrapped ciphertext stored on Walrus.
     content_hash: vector<u8>,
     /// Walrus blob ID (opaque bytes).
     walrus_blob_id: vector<u8>,
@@ -53,6 +53,12 @@ public struct RecordAnchor has key, store {
     created_at_ms: u64,
     /// Schema version (1=active, 255=tombstone).
     version: u8,
+    /// 0 = clinical record, 1 = longitudinal summary (versioned chain).
+    kind: u8,
+    /// Walrus blob id of the original image (empty for text-only / summary).
+    image_blob_id: vector<u8>,
+    /// For kind=1: number of records condensed. 0 for kind=0.
+    covered_count: u64,
 }
 
 // === Events ===
@@ -64,6 +70,8 @@ public struct RecordCreated has copy, drop {
     hospital_id: vector<u8>,
     visit_timestamp_ms: u64,
     created_at_ms: u64,
+    kind: u8,
+    covered_count: u64,
 }
 
 public struct RecordRevoked has copy, drop {
@@ -82,6 +90,9 @@ public fun create_anchor(
     walrus_blob_id: vector<u8>,
     hospital_id: vector<u8>,
     visit_timestamp_ms: u64,
+    kind: u8,
+    image_blob_id: vector<u8>,
+    covered_count: u64,
     clock: &sui::clock::Clock,
     ctx: &mut TxContext,
 ) {
@@ -104,6 +115,9 @@ public fun create_anchor(
         visit_timestamp_ms,
         created_at_ms: now,
         version: VERSION_ACTIVE,
+        kind,
+        image_blob_id,
+        covered_count,
     };
 
     event::emit(RecordCreated {
@@ -113,6 +127,8 @@ public fun create_anchor(
         hospital_id: anchor.hospital_id,
         visit_timestamp_ms,
         created_at_ms: now,
+        kind,
+        covered_count,
     });
 
     transfer::share_object(anchor);
@@ -146,6 +162,9 @@ public fun is_active(anchor: &RecordAnchor): bool { anchor.version == VERSION_AC
 public fun content_hash(anchor: &RecordAnchor): &vector<u8> { &anchor.content_hash }
 public fun walrus_blob_id(anchor: &RecordAnchor): &vector<u8> { &anchor.walrus_blob_id }
 public fun seal_policy_id(anchor: &RecordAnchor): ID { anchor.seal_policy_id }
+public fun kind(anchor: &RecordAnchor): u8 { anchor.kind }
+public fun image_blob_id(anchor: &RecordAnchor): &vector<u8> { &anchor.image_blob_id }
+public fun covered_count(anchor: &RecordAnchor): u64 { anchor.covered_count }
 
 /// Seal access policy. Per Seal 1.x protocol the first parameter MUST be
 /// `id: vector<u8>` — the IBE identity bytes the ciphertext was encrypted to.

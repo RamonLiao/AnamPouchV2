@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import type { SealCompatibleClient } from '@mysten/seal';
@@ -6,7 +6,7 @@ import { queryRecordCreatedByPatient, queryRevokedRecordIds } from '../api/queri
 import { buildRevokeAnchorTx } from '../api/recordAnchor';
 import { sealClient, suiJsonRpc, dAppKit } from '../lib/dappKit';
 import { getPatientSession } from '../lib/patientSession';
-import { viewOwnRecord, type ViewStage } from '../lib/patientPipeline';
+import { viewOwnRecord, viewOwnImage, type ViewStage } from '../lib/patientPipeline';
 import { explainMoveError } from '../lib/errors';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import type { ObjectId, SuiAddress } from '../types/contracts';
@@ -26,12 +26,37 @@ interface ExpandState {
   err?: string;
 }
 
+interface ImageState {
+  stage: ViewStage;
+  objectUrl?: string;
+  err?: string;
+}
+
+/** Component that displays a decrypted image and revokes its object URL on unmount. */
+function DecryptedImage({ objectUrl, alt }: { objectUrl: string; alt: string }) {
+  const urlRef = useRef(objectUrl);
+  useEffect(() => {
+    urlRef.current = objectUrl;
+    return () => {
+      URL.revokeObjectURL(urlRef.current);
+    };
+  }, [objectUrl]);
+  return (
+    <img
+      src={objectUrl}
+      alt={alt}
+      style={{ maxWidth: '100%', borderRadius: 8, marginTop: 8 }}
+    />
+  );
+}
+
 export function RecordList() {
   const session = getPatientSession();
   const address = session.getAddress();
   const qc = useQueryClient();
   const [expandedId, setExpandedId] = useState<ObjectId | null>(null);
   const [states, setStates] = useState<Record<string, ExpandState>>({});
+  const [imageStates, setImageStates] = useState<Record<string, ImageState>>({});
   const [pendingRevoke, setPendingRevoke] = useState<ObjectId | null>(null);
   const [revokeBusy, setRevokeBusy] = useState(false);
   const [revokeErr, setRevokeErr] = useState<string | null>(null);
@@ -96,6 +121,41 @@ export function RecordList() {
     }
   }
 
+  async function handleViewImage(id: ObjectId) {
+    // If already decrypted, toggle — but images are shown below text, not toggled separately.
+    // Re-clicking just re-decrypts (cheap no-op: we guard with objectUrl).
+    const existing = imageStates[id];
+    if (existing?.objectUrl) return; // already have it
+
+    if (!address) return;
+    const updateImg = (s: ImageState) => setImageStates((prev) => ({ ...prev, [id]: s }));
+    updateImg({ stage: 'fetching' });
+    try {
+      const bytes = await viewOwnImage({
+        recordId: id,
+        address,
+        signPersonalMessage: (msg) => session.signPersonalMessage(msg),
+        suiClient: suiJsonRpc as any,
+        sealCompatibleClient: dAppKit.getClient() as unknown as SealCompatibleClient,
+        sealClient,
+        onStage: (stage) => updateImg({ stage }),
+      });
+      if (bytes === null) {
+        updateImg({ stage: 'done' }); // no image on this record
+        return;
+      }
+      // Copy into a fresh ArrayBuffer: exact view bytes only (no subarray padding) + satisfies BlobPart (no SharedArrayBuffer union).
+      const imgBytes = new Uint8Array(bytes.byteLength);
+      imgBytes.set(bytes);
+      const blob = new Blob([imgBytes]); // let browser sniff mime type
+      const objectUrl = URL.createObjectURL(blob);
+      updateImg({ stage: 'done', objectUrl });
+    } catch (e) {
+      const friendly = explainMoveError(e);
+      updateImg({ stage: 'error', err: friendly.hint || (e as Error).message });
+    }
+  }
+
   if (isLoading) return <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>Loading your health pouch…</p>;
   if (error) return <p style={{ color: 'var(--error)', textAlign: 'center', padding: '40px 0' }}>Failed to load: {String(error)}</p>;
   if (!data?.records.length) return (
@@ -119,9 +179,11 @@ export function RecordList() {
       <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
         {data.records.map((id) => {
           const st = states[id];
+          const imgSt = imageStates[id];
           const expanded = expandedId === id;
           const isRevoked = revokedIds?.has(id) ?? false;
           const busy = expanded && st && st.stage !== 'done' && st.stage !== 'error';
+          const imgBusy = !!imgSt && imgSt.stage !== 'done' && imgSt.stage !== 'error';
           return (
             <li key={id} style={{
               padding: 16,
@@ -158,6 +220,18 @@ export function RecordList() {
                   >
                     {busy ? '⏳ …' : expanded ? '▲ Hide' : '👁 View'}
                   </button>
+                  {expanded && st?.stage === 'done' && !imgSt?.objectUrl && (
+                    <button
+                      type="button"
+                      onClick={() => handleViewImage(id)}
+                      disabled={imgBusy}
+                      aria-label="Decrypt and view attached image"
+                      className="btn-secondary"
+                      style={{ fontSize: 13, padding: '8px 16px' }}
+                    >
+                      {imgBusy ? '⏳ …' : '🖼 Decrypt image'}
+                    </button>
+                  )}
                   {revokedKnown && !isRevoked && (
                     <>
                       <Link to={`/patient/share/${id}`} className="btn-secondary" style={{ fontSize: 13, padding: '8px 16px' }}>
@@ -204,6 +278,19 @@ export function RecordList() {
                       fontFamily: 'inherit',
                       color: 'var(--text)',
                     }}>{st.plaintext}</pre>
+                  )}
+                  {imgSt?.stage === 'error' && (
+                    <p style={{ margin: '8px 0 0', color: 'var(--error)', fontWeight: 600 }}>
+                      ⚠️ Image decrypt failed: {imgSt.err}
+                    </p>
+                  )}
+                  {imgSt?.stage !== 'done' && imgSt?.stage !== 'error' && imgSt?.stage !== undefined && (
+                    <p style={{ margin: '8px 0 0', color: 'var(--primary)', fontWeight: 600 }}>
+                      <span className="pulse">⏳</span> {STAGE_LABEL[imgSt.stage]}
+                    </p>
+                  )}
+                  {imgSt?.objectUrl && (
+                    <DecryptedImage objectUrl={imgSt.objectUrl} alt="Decrypted visit image" />
                   )}
                 </div>
               )}

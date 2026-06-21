@@ -3,9 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { redact, type RedactionReport } from '../lib/redactor';
 import { explainMoveError } from '../lib/errors';
 import { createEncryptedRecord } from '../lib/recordPipeline';
-import { sealClient } from '../lib/dappKit';
+import { createImageRecord } from '../lib/imagePipeline';
+import { extractText } from '../lib/ocr';
+import { geminiGenerate } from '../lib/gemini';
+import { sealClient, sealCompatibleClient, suiJsonRpc } from '../lib/dappKit';
 import { getPatientSession, signAndGetObjectChanges } from '../lib/patientSession';
 import { isSpeechSupported, startAsr, type AsrSession } from '../lib/asr';
+import { GEMINI } from '../config/contract';
+import { regenerateSummary, runSummaryExclusive } from '../lib/summary';
+import { loadAllDecryptedRecords } from '../lib/patientPipeline';
+import { queryRevokedRecordIds, queryLatestSummary } from '../api/queries';
+import { buildRevokeAnchorTx } from '../api/recordAnchor';
 
 /**
  * Record-creation flow:
@@ -28,6 +36,10 @@ export function RecordCreate() {
   const [report, setReport] = useState<RedactionReport | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Photo/upload state
+  const [pendingImage, setPendingImage] = useState<Uint8Array | null>(null);
+  const [ocrBusy, setOcrBusy] = useState(false);
 
   // ASR state
   const asrSupported = useRef(isSpeechSupported());
@@ -98,14 +110,72 @@ export function RecordCreate() {
     try {
       // For the Task-9 wire-up we encrypt the (already-redacted) transcript
       // bytes. Real flow will encrypt the LLM-summarised JSON envelope.
-      const plaintext = new TextEncoder().encode(report.redacted);
-      const { recordId, blobId } = await createEncryptedRecord({
-        plaintext,
-        hospitalId: hospitalId.trim() || 'unknown',
-        visitTimestampMs: BigInt(Date.now()),
-        sealClient,
-        sui: { signAndExecute: (tx) => signAndGetObjectChanges(session, tx) },
+      const redactedBytes = new TextEncoder().encode(report.redacted);
+      const sui = { signAndExecute: (tx: import('@mysten/sui/transactions').Transaction) => signAndGetObjectChanges(session, tx) };
+      let recordId: string;
+      let blobId: string | undefined;
+      if (pendingImage) {
+        const result = await createImageRecord({
+          redactedText: redactedBytes,
+          image: pendingImage,
+          hospitalId: hospitalId.trim() || 'unknown',
+          visitTimestampMs: BigInt(Date.now()),
+          sealClient,
+          sui,
+        });
+        recordId = result.recordId;
+        blobId = result.textBlobId;
+      } else {
+        const result = await createEncryptedRecord({
+          plaintext: redactedBytes,
+          hospitalId: hospitalId.trim() || 'unknown',
+          visitTimestampMs: BigInt(Date.now()),
+          sealClient,
+          sui,
+        });
+        recordId = result.recordId;
+        blobId = result.blobId;
+      }
+      // Fire background summary regeneration — non-blocking, must never reject.
+      void runSummaryExclusive(async () => {
+        const decryptedRecords = await loadAllDecryptedRecords({
+          address: address!,
+          signPersonalMessage: (msg) => session.signPersonalMessage(msg),
+          suiClient: suiJsonRpc as any,
+          sealCompatibleClient,
+          sealClient,
+        });
+        const revoked = await queryRevokedRecordIds();
+        const old = await queryLatestSummary(address as `0x${string}`, revoked);
+        await regenerateSummary({
+          decryptedRecords,
+          language: 'zh-TW',
+          oldSummaryId: old?.recordId ?? null,
+          gemini: (prompt) =>
+            geminiGenerate({
+              apiKey: GEMINI.apiKey,
+              model: GEMINI.model,
+              systemPrompt: '',
+              parts: [{ text: prompt }],
+            }),
+          createSummaryAnchor: async ({ summaryText, coveredCount }) => {
+            const bytes = new TextEncoder().encode(summaryText);
+            return createEncryptedRecord({
+              plaintext: bytes,
+              hospitalId: 'summary',
+              visitTimestampMs: BigInt(Date.now()),
+              kind: 1,
+              coveredCount,
+              sealClient,
+              sui: { signAndExecute: (tx) => signAndGetObjectChanges(session, tx) },
+            });
+          },
+          revokeOld: async (oldId) => {
+            await signAndGetObjectChanges(session, buildRevokeAnchorTx(oldId));
+          },
+        });
       });
+
       navigate(`/patient/share/${recordId}`, { state: { blobId } });
     } catch (e) {
       setErr(explainMoveError(e).hint);
@@ -159,6 +229,53 @@ export function RecordCreate() {
           )}
         </div>
       )}
+
+      {/* Photo / upload capture — OCR into transcript */}
+      <div style={{ marginBottom: 16, padding: 16, background: 'var(--accent-soft)', borderRadius: 12, border: '1px solid var(--accent)' }}>
+        <label htmlFor="photo-upload" className="input-label" style={{ display: 'block', marginBottom: 8 }}>
+          📷 Upload or Capture Medical Document (OCR)
+        </label>
+        <input
+          id="photo-upload"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          aria-label="Upload or capture a medical document image for OCR"
+          disabled={ocrBusy || submitting || recording}
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            setOcrBusy(true);
+            setErr(null);
+            try {
+              const bytes = new Uint8Array(await file.arrayBuffer());
+              const text = await extractText({
+                image: { bytes, mimeType: file.type },
+                language: 'zh-TW',
+                gemini: (parts, sys) =>
+                  geminiGenerate({ apiKey: GEMINI.apiKey, model: GEMINI.model, systemPrompt: sys, parts }),
+              });
+              setTranscript((prev) => (prev ? prev + '\n' : '') + text);
+              setReport(null);
+              setPendingImage(bytes);
+            } catch (err) {
+              setErr(`OCR 失敗: ${(err as Error).message}`);
+            } finally {
+              setOcrBusy(false);
+            }
+          }}
+        />
+        {ocrBusy && (
+          <p style={{ fontSize: 12, color: 'var(--primary)', marginTop: 8, margin: 0 }}>
+            ⏳ Extracting text from image…
+          </p>
+        )}
+        {pendingImage && !ocrBusy && (
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8, margin: 0 }}>
+            ✅ Image ready — will be stored alongside the encrypted text.
+          </p>
+        )}
+      </div>
 
       <div className="input-group">
         <label className="input-label">Visit Transcript</label>

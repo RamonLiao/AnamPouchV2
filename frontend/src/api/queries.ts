@@ -74,8 +74,9 @@ export async function queryRecordCreatedByPatient(
     order: 'descending',
   });
   const records = res.data
-    .filter((e: { parsedJson?: unknown }) => (e.parsedJson as { patient: string }).patient === patient)
-    .map((e: { parsedJson?: unknown }) => (e.parsedJson as { record_id: ObjectId }).record_id);
+    .map((e: { parsedJson?: unknown }) => e.parsedJson as { patient: string; record_id: ObjectId; kind?: number })
+    .filter((p) => p.patient === patient && (p.kind ?? 0) === 0)
+    .map((p) => p.record_id);
   return {
     records,
     nextCursor: res.nextCursor ? JSON.stringify(res.nextCursor) : null,
@@ -164,4 +165,47 @@ export function queryRevokedGrantIds(): Promise<Set<ObjectId>> {
 
 export function queryConsumedGrantIds(): Promise<Set<ObjectId>> {
   return scanGrantIdSet(CONTRACT.events.grantConsumed);
+}
+
+export interface SummaryRow {
+  recordId: ObjectId;
+  coveredCount: bigint;
+  createdAtMs: bigint;
+}
+
+type RawSummaryEvent = {
+  record_id: ObjectId;
+  patient: string;
+  kind?: number;
+  covered_count: string;
+  created_at_ms: string;
+};
+
+/** Pure selector: no network. Filters kind===1, excludes tombstoned, returns highest createdAtMs. */
+export function pickLatestSummary(
+  events: RawSummaryEvent[],
+  revoked: Set<ObjectId>,
+): SummaryRow | null {
+  let best: SummaryRow | null = null;
+  for (const e of events) {
+    if ((e.kind ?? 0) !== 1) continue;
+    if (revoked.has(e.record_id)) continue;
+    const createdAtMs = BigInt(e.created_at_ms);
+    if (!best || createdAtMs > best.createdAtMs) {
+      best = { recordId: e.record_id, coveredCount: BigInt(e.covered_count), createdAtMs };
+    }
+  }
+  return best;
+}
+
+/** Scans all RecordCreated events for patient, returns latest non-tombstoned summary. */
+export async function queryLatestSummary(
+  patient: SuiAddress,
+  revoked: Set<ObjectId>,
+): Promise<SummaryRow | null> {
+  const data = await drainEvents(CONTRACT.events.recordCreated);
+  const mine = data
+    .map((e) => e.parsedJson as RawSummaryEvent)
+    .filter((p) => p.patient === patient);
+  return pickLatestSummary(mine, revoked);
 }

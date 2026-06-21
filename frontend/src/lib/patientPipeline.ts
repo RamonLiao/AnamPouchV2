@@ -11,6 +11,8 @@ import { SessionKey, type SealClient, type SealCompatibleClient } from '@mysten/
 import { CONTRACT, SEAL, WALRUS } from '../config/contract';
 import { fetchBlob } from './walrus';
 import type { ObjectId } from '../types/contracts';
+import type { DecryptedRecord } from './summary';
+import { queryRecordCreatedByPatient } from '../api/queries';
 
 export type ViewStage =
   | 'idle'
@@ -35,26 +37,20 @@ export interface ViewOwnRecordDeps {
   walrusAggregator?: string;
 }
 
-export async function viewOwnRecord(deps: ViewOwnRecordDeps): Promise<string> {
+/**
+ * Core decrypt helper: decrypts an arbitrary blobId under a record's
+ * content_hash (same IBE id for both text and image blobs).
+ *
+ * @returns raw decrypted bytes — caller decides how to interpret them.
+ */
+export async function decryptRecordBlob(
+  blobId: string,
+  contentHashBytes: number[],
+  deps: Omit<ViewOwnRecordDeps, 'recordId'> & { recordId: ObjectId },
+): Promise<Uint8Array> {
   const stage = (s: ViewStage) => deps.onStage?.(s);
 
   stage('fetching');
-  const recordObj: any = await deps.suiClient.getObject({
-    id: deps.recordId,
-    options: { showContent: true },
-  });
-  const fields = recordObj?.data?.content?.fields;
-  if (!fields) throw new Error('record object missing content');
-
-  const blobIdBytes: number[] = fields.walrus_blob_id ?? [];
-  const blobId = new TextDecoder().decode(new Uint8Array(blobIdBytes));
-  if (!blobId) throw new Error('record has no walrus_blob_id');
-
-  const contentHashBytes: number[] = fields.content_hash ?? [];
-  if (contentHashBytes.length !== 32) {
-    throw new Error('record content_hash missing or wrong length');
-  }
-
   const cipher = await fetchBlob(blobId, deps.walrusAggregator ?? WALRUS.aggregatorUrl);
 
   stage('session');
@@ -89,6 +85,134 @@ export async function viewOwnRecord(deps: ViewOwnRecordDeps): Promise<string> {
     txBytes,
   });
 
+  return plaintextBytes;
+}
+
+/** Decode a walrus blobId stored as TextEncoder bytes (number[]). Returns empty string if empty. */
+export function decodeBlobIdBytes(bytes: number[]): string {
+  if (!bytes || bytes.length === 0) return '';
+  return new TextDecoder().decode(new Uint8Array(bytes));
+}
+
+export async function viewOwnRecord(deps: ViewOwnRecordDeps): Promise<string> {
+  const stage = (s: ViewStage) => deps.onStage?.(s);
+
+  // Fetch anchor to resolve blobId + contentHash.
+  // (Stage 'fetching' is emitted by decryptRecordBlob; we pre-set it here for
+  //  the object fetch before we have the blobId.)
+  stage('fetching');
+  const recordObj: any = await deps.suiClient.getObject({
+    id: deps.recordId,
+    options: { showContent: true },
+  });
+  const fields = recordObj?.data?.content?.fields;
+  if (!fields) throw new Error('record object missing content');
+
+  const blobId = decodeBlobIdBytes(fields.walrus_blob_id ?? []);
+  if (!blobId) throw new Error('record has no walrus_blob_id');
+
+  const contentHashBytes: number[] = fields.content_hash ?? [];
+  if (contentHashBytes.length !== 32) {
+    throw new Error('record content_hash missing or wrong length');
+  }
+
+  const plaintextBytes = await decryptRecordBlob(blobId, contentHashBytes, deps);
+
   stage('done');
   return new TextDecoder().decode(plaintextBytes);
+}
+
+/**
+ * Decrypt and return the image blob attached to a record as raw bytes.
+ * Returns null if the record has no image_blob_id.
+ */
+export async function viewOwnImage(deps: ViewOwnRecordDeps): Promise<Uint8Array | null> {
+  const stage = (s: ViewStage) => deps.onStage?.(s);
+
+  stage('fetching');
+  const recordObj: any = await deps.suiClient.getObject({
+    id: deps.recordId,
+    options: { showContent: true },
+  });
+  const fields = recordObj?.data?.content?.fields;
+  if (!fields) throw new Error('record object missing content');
+
+  const imageBlobId = decodeBlobIdBytes(fields.image_blob_id ?? []);
+  if (!imageBlobId) return null; // no image attached
+
+  const contentHashBytes: number[] = fields.content_hash ?? [];
+  if (contentHashBytes.length !== 32) {
+    throw new Error('record content_hash missing or wrong length');
+  }
+
+  const imageBytes = await decryptRecordBlob(imageBlobId, contentHashBytes, deps);
+
+  stage('done');
+  return imageBytes;
+}
+
+/** Deps injected by the caller — allows fakes in tests. */
+export interface LoadAllRecordsDeps {
+  address: string;
+  signPersonalMessage: (msg: Uint8Array) => Promise<{ signature: string }>;
+  suiClient: ViewOwnRecordDeps['suiClient'];
+  sealCompatibleClient: SealCompatibleClient;
+  sealClient: Pick<SealClient, 'decrypt'>;
+  /** Override Walrus aggregator URL (tests). */
+  walrusAggregator?: string;
+  /** Override the event query function (tests). */
+  listRecordIds?: (patient: string, cursor?: string | null) => Promise<{ records: ObjectId[]; nextCursor: string | null }>;
+}
+
+/**
+ * Drain all active (kind=0) record ids for a patient, decrypt each one via the
+ * owner path, and return a list of { text, visitMs } for summary generation.
+ *
+ * Failures on individual records are silently skipped so that a single corrupt
+ * blob cannot abort the whole summary.
+ */
+export async function loadAllDecryptedRecords(
+  deps: LoadAllRecordsDeps,
+): Promise<DecryptedRecord[]> {
+  const listFn = deps.listRecordIds ?? queryRecordCreatedByPatient;
+
+  // Drain all pages of kind=0 record ids.
+  const recordIds: ObjectId[] = [];
+  let cursor: string | null | undefined = undefined;
+  for (;;) {
+    const page = await listFn(deps.address as `0x${string}`, cursor);
+    recordIds.push(...page.records);
+    if (!page.nextCursor) break;
+    cursor = page.nextCursor;
+  }
+
+  // Decrypt each record; skip on failure.
+  const results: DecryptedRecord[] = [];
+  for (const recordId of recordIds) {
+    try {
+      // Fetch the anchor object to get visitTimestampMs.
+      const anchorRes: any = await deps.suiClient.getObject({
+        id: recordId,
+        options: { showContent: true },
+      });
+      const fields = anchorRes?.data?.content?.fields;
+      const visitMs: bigint = fields?.visit_timestamp_ms
+        ? BigInt(fields.visit_timestamp_ms)
+        : 0n;
+
+      const text = await viewOwnRecord({
+        recordId,
+        address: deps.address,
+        signPersonalMessage: deps.signPersonalMessage,
+        suiClient: deps.suiClient,
+        sealCompatibleClient: deps.sealCompatibleClient,
+        sealClient: deps.sealClient,
+        ...(deps.walrusAggregator !== undefined ? { walrusAggregator: deps.walrusAggregator } : {}),
+      });
+      results.push({ text, visitMs });
+    } catch (e) {
+      console.warn(`loadAllDecryptedRecords: skipping ${recordId}`, e);
+    }
+  }
+  return results;
 }
