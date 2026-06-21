@@ -1,5 +1,30 @@
-import { describe, it, expect } from 'vitest';
-import { buildDashboard } from './dashboardQuery';
+import { describe, it, expect, vi } from 'vitest';
+import { buildDashboard, loadDashboard } from './dashboardQuery';
+
+vi.mock('../api/queries', () => ({
+  queryRevokedRecordIds: vi.fn(),
+  queryRecordCreatedByPatient: vi.fn(),
+  fetchRecordAnchor: vi.fn(),
+  queryLatestSummary: vi.fn(),
+}));
+
+describe('loadDashboard', () => {
+  it('excludes revoked records from recordCount and timeline', async () => {
+    const { queryRevokedRecordIds, queryRecordCreatedByPatient, fetchRecordAnchor, queryLatestSummary } =
+      await import('../api/queries');
+
+    vi.mocked(queryRevokedRecordIds).mockResolvedValue(new Set(['0xrevoked' as `0x${string}`]));
+    vi.mocked(queryRecordCreatedByPatient).mockResolvedValue({ records: ['0xactive' as `0x${string}`, '0xrevoked' as `0x${string}`] });
+    vi.mocked(fetchRecordAnchor).mockResolvedValue({ visit_timestamp_ms: 1000 });
+    vi.mocked(queryLatestSummary).mockResolvedValue(null);
+
+    const result = await loadDashboard('0xpatient' as `0x${string}`);
+
+    expect(result.recordCount).toBe(1);
+    expect(result.timeline).toHaveLength(1);
+    expect(result.timeline[0]!.recordId).toBe('0xactive');
+  });
+});
 
 describe('buildDashboard', () => {
   it('counts records and sorts timeline ascending', () => {
