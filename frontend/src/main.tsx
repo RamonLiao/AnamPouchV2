@@ -27,6 +27,7 @@ import { RecordList } from './patient/RecordList';
 import { GrantList } from './patient/GrantList';
 import { RecordCreate } from './patient/RecordCreate';
 import { RecordShare } from './patient/RecordShare';
+import { Dashboard } from './patient/Dashboard';
 import { DoctorShell } from './doctor/Shell';
 import { ConsumePage } from './doctor/ConsumePage';
 
@@ -45,6 +46,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="grants" element={<GrantList />} />
               <Route path="new" element={<RecordCreate />} />
               <Route path="share/:recordId" element={<RecordShare />} />
+              <Route path="dashboard" element={<Dashboard />} />
             </Route>
             <Route path="/doctor" element={<DoctorShell />}>
               <Route index element={<ConsumePage />} />
