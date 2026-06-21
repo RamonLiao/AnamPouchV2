@@ -119,10 +119,10 @@ describe('loadAllDecryptedRecords', () => {
     });
     const result = await loadAllDecryptedRecords(deps);
     expect(result).toHaveLength(2);
-    expect(result[0].text).toBe('text-1');
-    expect(result[0].visitMs).toBe(1000n);
-    expect(result[1].text).toBe('text-2');
-    expect(result[1].visitMs).toBe(2000n);
+    expect(result[0]!.text).toBe('text-1');
+    expect(result[0]!.visitMs).toBe(1000n);
+    expect(result[1]!.text).toBe('text-2');
+    expect(result[1]!.visitMs).toBe(2000n);
   });
 
   it('drains multiple pages via nextCursor', async () => {
@@ -154,7 +154,7 @@ describe('loadAllDecryptedRecords', () => {
     });
     const result = await loadAllDecryptedRecords(deps);
     expect(result).toHaveLength(1);
-    expect(result[0].text).toBe('good text');
+    expect(result[0]!.text).toBe('good text');
   });
 
   it('falls back visitMs to 0n when visit_timestamp_ms is absent', async () => {
@@ -171,6 +171,6 @@ describe('loadAllDecryptedRecords', () => {
       },
     });
     const result = await loadAllDecryptedRecords(deps);
-    expect(result[0].visitMs).toBe(0n);
+    expect(result[0]!.visitMs).toBe(0n);
   });
 });

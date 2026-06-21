@@ -14,8 +14,8 @@ describe('loadDashboard', () => {
       await import('../api/queries');
 
     vi.mocked(queryRevokedRecordIds).mockResolvedValue(new Set(['0xrevoked' as `0x${string}`]));
-    vi.mocked(queryRecordCreatedByPatient).mockResolvedValue({ records: ['0xactive' as `0x${string}`, '0xrevoked' as `0x${string}`] });
-    vi.mocked(fetchRecordAnchor).mockResolvedValue({ visit_timestamp_ms: 1000 });
+    vi.mocked(queryRecordCreatedByPatient).mockResolvedValue({ records: ['0xactive' as `0x${string}`, '0xrevoked' as `0x${string}`], nextCursor: null });
+    vi.mocked(fetchRecordAnchor).mockResolvedValue({ visit_timestamp_ms: '1000' } as unknown as import('../types/contracts').RecordAnchorFields);
     vi.mocked(queryLatestSummary).mockResolvedValue(null);
 
     const result = await loadDashboard('0xpatient' as `0x${string}`);
