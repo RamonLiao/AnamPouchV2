@@ -1,5 +1,7 @@
 # AnamPouch 🎒🩺
 
+## 🎬 ▶️ [**Watch the Demo Video**](https://youtu.be/UFV1V5aagBw)
+
 > **A privacy-first, smartphone-centric AI medical assistant that empowers patients with true data sovereignty through browser-based encryption, lightweight LLM (3B-8B) structures, and Sui tool stacks verified on Walrus storage.**
 
 ---
