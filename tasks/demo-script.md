@@ -9,12 +9,28 @@ App: https://anam-pouch.vercel.app · Local: localhost:5174
 - 病人帳號已登入、已建好 1 筆純文字 record + 1 筆圖片 record（新 package，Seal namespace 對得上）
 - doctor viewer link / QR 已準備
 - 兩個瀏覽器 window：病人端 + doctor 端，先排好版面
+- `tasks/demo_slides.html` 開好（共 4 頁），與 app 切換用 alt-tab
+
+---
+
+## 投影片對照（`tasks/demo_slides.html` 共 4 頁）
+
+| Slide | 內容 | 時段 | 講什麼 |
+|---|---|---|---|
+| **1** Title | AnamPouch logo | 0:00–0:10 | 開場 hook → PART 1 起頭兩句（data silos + AI vs privacy） |
+| **2** Problem / Solution / Why-us | 三欄卡 | 0:10–1:00 | PART 1 主權宣言。左欄=痛點、中欄=解法、右欄=「You are in absolute control」 |
+| **3** Two flows | 病人 + 醫生 flow | **1:00–4:00（整個 live demo 背景頁）** | 切 app 實機操作；slide 3 當「走到哪一步」的地圖，做哪個動作就指哪個 node（對照見 PART 2 各 Beat） |
+| **4** Health memory agent | future 四點 | 4:00–5:00 | PART 3 future vision + 收尾 |
+
+操作節奏：Slide 1 停 ~10s → 翻 Slide 2 講到 1:00 → 翻 **Slide 3** 講完開場句後切 app 實機 → 4:00 翻 **Slide 4** 純口述收尾。
 
 ---
 
 ## PART 1 — Pitch Slide (0:00–1:00)
 
-**單張 slide。口白逐字稿（British English）：**
+> **Slide 1**（前兩句 hook）→ **Slide 2**（主權宣言）
+
+**口白逐字稿（British English）：**
 
 > "Modern healthcare has one fundamental flaw — data silos. Your medical history is scattered across every clinic you've ever visited, and not a single copy is yours to carry.
 > It gets worse. The moment you want an AI to read your diagnosis, your prescription, your medication interactions, you have to upload your most private data to the cloud. Privacy, compliance, the risk of a breach — it all collapses at that one step.
@@ -32,15 +48,19 @@ Stack 一行帶過（slide 角落，不唸）：Sui zkLogin · Seal · Walrus ·
 
 ## PART 2 — Live Demo (1:00–4:00)
 
+> **背景頁 = Slide 3「Two flows」**。左欄(病人 flow)4 node ↔ Beat 1–2；右欄(醫生 flow, good 色)4 node ↔ Beat 3–4。做哪個動作就指對應 node。
+
 > 開場一句（口白）："Everything you're about to see runs on live Sui testnet — this is not a mock-up."
 
 ### Beat 1 — 登入即主權 (1:00–1:25) ~25s
+> Slide 3 node `1·LOGIN`
 - 病人端點 **Sign in with Google**（zkLogin）
 - 口白："I sign in with Google — but behind it is zkLogin. **No seed phrase, no wallet extension**, yet it derives a fully non-custodial Sui wallet. Zero friction for an ordinary patient to step into Web3."
 
 ### Beat 2 — 多模態擷取 + 瀏覽器加密上鏈 (1:25–2:25) ~60s ★核心
+> Slide 3 node `2·AI`（上傳圖）→ `3·ENCRYPT`（Encrypt & Anchor）→ `4·ANCHOR`（Walrus + Timeline）
 - 上傳/拍一張**藥袋或診斷書圖片**
-- 口白："A lightweight LLM runs OCR **locally**, structuring this medicine-bag image into a clinical JSON record. The plaintext never leaves this device."
+- 口白："An LLM reads and structures this medicine-bag image into a clinical JSON record. **The point is what happens next — nothing is ever stored in the clear.**"
 - 點 **Encrypt & Anchor**，邊跑邊講：
   - "AES-GCM-256 encrypts it right here in the browser — the key is derived via HKDF from the patient's own wallet signature."
   - "The encrypted image and text are pushed to **Walrus**, and we get back a blob ID."
@@ -51,12 +71,14 @@ Stack 一行帶過（slide 角落，不唸）：Sui zkLogin · Seal · Walrus ·
 - 口白（可選）："And to prove it's fully reversible — one tap, and the encrypted image decrypts straight back, end to end."
 
 ### Beat 3 — 授權醫生：無錢包、無 gas (2:25–3:25) ~60s ★殺手鐧
+> Slide 3 右欄 node `1·SCAN` → `2·VERIFY` → `3·RELEASE`
 - 病人端 **Share** → 發一張**有時效**的 `access_grant` → 產生 QR / link
 - 口白："To share, the AES key is sealed under the doctor's access policy using **Seal** threshold encryption, and the grant is written on-chain."
 - 切到 **doctor 端 window**，開 QR link
 - 口白（重點打慢）："Now look at the doctor's side — **no wallet installed, no app, no gas paid**. Enoki sponsors the transaction; the app foots the bill. The doctor scans the code and instantly sees the decrypted record. This is a genuinely zero-friction clinical workflow."
 
 ### Beat 4 — 一鍵撤銷，鏈上即時生效 (3:25–4:00) ~35s ★信任閉環
+> Slide 3 右欄 node `4·REVOKE`
 - 病人端點 **Revoke**
 - 口白："The patient taps Revoke — one call, `revoke_grant`, and the grant flips to revoked on-chain."
 - 回 doctor 端 reload → **存取失敗**
@@ -68,7 +90,7 @@ Stack 一行帶過（slide 角落，不唸）：Sui zkLogin · Seal · Walrus ·
 
 ## PART 3 — Future Vision (4:00–5:00)
 
-> 一張 slide 或直接口述（British English）：
+> **Slide 4「Health memory agent」**。口述（British English）：
 
 > "What you've just seen is a **working sovereign health passport.** Here's where we take it next:
 >
