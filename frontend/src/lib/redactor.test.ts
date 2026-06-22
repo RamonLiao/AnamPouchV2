@@ -1,67 +1,34 @@
 /**
- * Smoke tests for the PII redactor. Run with `vitest` (add later if needed).
- * For now: import & assert in a dev-only route, or run via `tsx`.
- *
- *   pnpm tsx src/lib/redactor.test.ts
+ * Tests for the PII redactor — the mandatory chokepoint before any cloud LLM call.
+ * Each case encodes WHY: an under-redacted category here = real PHI leaking to a
+ * third-party API (threat T15). Round-trip asserts unredact() is lossless so the
+ * on-device summary can be restored without corrupting the original transcript.
  */
+import { describe, it, expect } from 'vitest';
+import { redact, unredact, type RedactionCategory } from './redactor';
 
-import { redact, unredact } from './redactor';
-
-const cases: Array<[string, string, Partial<Record<string, number>>]> = [
-  [
-    'TW NHI valid',
-    '我的身分證 A123456789，電話 0912-345-678。',
-    { TW_NHI: 1, PHONE: 1 },
-  ],
-  [
-    'TW NHI invalid checksum (should NOT redact)',
-    '假身分證 A123456788',
-    { TW_NHI: 0 },
-  ],
-  [
-    'JP my-number',
-    'マイナンバー 123456789018 です。',
-    { JP_MYNUMBER: 1 },
-  ],
-  [
-    'email + address (TW)',
-    '聯絡 foo@bar.com 住址：台北市大安區忠孝東路四段100號',
-    { EMAIL: 1, ADDRESS: 1 },
-  ],
-  [
-    'DOB various formats',
-    '出生 1980-05-12，民國 70/05/12，令和2年5月12日',
-    { DOB: 2 },
-  ],
-  [
-    'CJK name hint',
-    '陳大文 patient reports 頭痛',
-    { NAME: 1 },
-  ],
+const cases: Array<[string, string, Partial<Record<RedactionCategory, number>>]> = [
+  ['TW NHI valid', '我的身分證 A123456789，電話 0912-345-678。', { TW_NHI: 1, PHONE: 1 }],
+  ['TW NHI invalid checksum (should NOT redact)', '假身分證 A123456788', { TW_NHI: 0 }],
+  ['JP my-number', 'マイナンバー 123456789018 です。', { JP_MYNUMBER: 1 }],
+  ['email + address (TW)', '聯絡 foo@bar.com 住址：台北市大安區忠孝東路四段100號', { EMAIL: 1, ADDRESS: 1 }],
+  // Gregorian (1980-05-12) + ROC era (民國 70/05/12) must both redact; 令和 not yet supported.
+  ['DOB various formats', '出生 1980-05-12，民國 70/05/12，令和2年5月12日', { DOB: 2 }],
+  ['CJK name hint', '陳大文 patient reports 頭痛', { NAME: 1 }],
 ];
 
-let pass = 0, fail = 0;
-for (const [name, input, expect] of cases) {
-  const r = redact(input);
-  const ok = Object.entries(expect).every(([k, v]) => (r.stats as Record<string, number>)[k] === v);
-  console.log(`${ok ? '✓' : '✗'} ${name}`);
-  console.log(`  in:  ${input}`);
-  console.log(`  out: ${r.redacted}`);
-  console.log(`  stats: ${JSON.stringify(r.stats)}`);
-  if (!ok) {
-    console.log(`  expected: ${JSON.stringify(expect)}`);
-    fail++;
-  } else {
-    pass++;
-  }
+describe('redact', () => {
+  for (const [name, input, expected] of cases) {
+    it(`detects expected PII counts: ${name}`, () => {
+      const r = redact(input);
+      for (const [k, v] of Object.entries(expected)) {
+        expect(r.stats[k as RedactionCategory], `category ${k}`).toBe(v);
+      }
+    });
 
-  // Round-trip
-  const restored = unredact(r.redacted, r.reverseMap);
-  if (restored !== input) {
-    console.log(`  ✗ round-trip failed: ${restored}`);
-    fail++;
+    it(`round-trips losslessly: ${name}`, () => {
+      const r = redact(input);
+      expect(unredact(r.redacted, r.reverseMap)).toBe(input);
+    });
   }
-}
-
-console.log(`\n${pass} pass, ${fail} fail`);
-process.exit(fail > 0 ? 1 : 0);
+});

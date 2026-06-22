@@ -87,7 +87,8 @@ const PATTERNS: Pattern[] = [
   { category: 'EMAIL', regex: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g },
   // Dates: YYYY-MM-DD, YYYY/MM/DD, 民國 NNN/MM/DD, JP 令和N年M月D日
   { category: 'DOB', regex: /\b(?:19|20)\d{2}[-/年]\d{1,2}[-/月]\d{1,2}日?\b/g },
-  { category: 'DOB', regex: /\b民國\s?\d{2,3}[-/年]\d{1,2}[-/月]\d{1,2}日?\b/g },
+  // No leading \b: 民 is a CJK char (not a JS word char), so \b never matches before it.
+  { category: 'DOB', regex: /民國\s?\d{2,3}[-/年]\d{1,2}[-/月]\d{1,2}日?/g },
   // Address keywords
   { category: 'ADDRESS', regex: /[一-鿿0-9０-９]{2,8}(?:市|區|縣|鄉|鎮|里|村|路|街|巷|弄|號|樓)[一-鿿0-9０-９號樓-]{0,30}/g },
   { category: 'ADDRESS', regex: /\d{1,4}[-丁目]\d{1,4}(?:[-番]\d{1,4})?(?:号|号室)?/g },
