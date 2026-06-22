@@ -91,7 +91,19 @@
 
 ---
 
+### 2.6 Web3 HTML 簡報投影片實作
+* **時間**：2026-06-22
+* **背景**：為了便於 hackathon 現場演示與離線開啟，將 5 分鐘 Pitch & Demo 內容網頁化。
+* **調整內容**：
+  1. 新增 [demo_slides.html](file:///Users/ramonliao/Documents/Code/Project/Web3/Hackathon/2026_Sui_Overflow/Tracks/3-Walrus/AnamPouchV2/tasks/demo_slides.html) 至 `tasks/` 目錄。
+  2. 設計系統採用優雅大氣的 Web3 漸層暗色系與毛玻璃效果（Glassmorphism），搭配微互動與氣泡式光影背景。
+  3. 實作平滑的左右滑動轉場動畫（3D 縮放與漸變效果），支援左右鍵（ArrowLeft/Right）、空白鍵（Space）、觸控滑動手勢以及 HUD 控制面板（點擊 dot 切換與上一張/下一張按鈕）。
+  4. 將 5 張投影片完整對應五分鐘的演示流程，包含：Title/技術棧、三大痛點、患者端加密流、醫生端零門檻與未來願景。
+
+---
+
 ## 3. 前端待辦事項 (TODO)
 * `[ ]` 設計更精緻的 Mobile Navigation menu (漢堡選單)，進一步提升行動端体验。
 * `[ ]` 為 Landing page 卡片引入基於 scroll 的滾動淡入動畫 (Scroll-reveal effects)。
 * `[ ]` 確保主 App 路由與 `app.html` 的轉換連結始終完美相容。
+

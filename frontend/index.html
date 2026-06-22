@@ -448,8 +448,7 @@
         </a>
         <nav>
             <a href="#problem" class="nav-link">Problem & Solution</a>
-            <a href="#architecture" class="nav-link">System Architecture</a>
-            <a href="#features" class="nav-link">Core Features</a>
+            <a href="#features" class="nav-link">What You Can Do</a>
         </nav>
         <div class="header-cta">
             <a href="/patient" class="btn btn-primary">Launch App</a>
@@ -460,7 +459,7 @@
         <section class="hero">
             <div class="badge">✨ Privacy-First Health Assistant</div>
             <h1>Your Medical History, Fully Under <span>Your Control</span></h1>
-            <p>True data sovereignty via on-device AI processing and decentralized blockchain verification. Secure, instant, and completely private.</p>
+            <p>Encrypted on your device, summarised by AI without exposing your private details, and verified on the Sui blockchain. Secure, portable, and yours alone.</p>
             <div class="hero-actions">
                 <a href="/patient" class="btn btn-primary">Launch Application</a>
                 <a href="#problem" class="btn btn-secondary">Learn More</a>
@@ -475,111 +474,62 @@
                         <div class="icon-wrapper">⚠️</div>
                         <span>The Problem</span>
                     </h3>
-                    <p>Fragmented data silos prevent patients from maintaining a unified, continuous medical history. Traditional cloud AI processing risks exposing extremely sensitive personal clinical records to central servers.</p>
+                    <p>Records are scattered across clinics, so patients can't carry a complete history between providers. And using AI on those records normally means uploading raw personal health data to a central server — a leak and compliance risk.</p>
                 </div>
                 <div class="card">
                     <h3>
                         <div class="icon-wrapper">💡</div>
                         <span>Our Solution</span>
                     </h3>
-                    <p>AnamPouch locks medical records locally on your personal device. Utilizing secure edge AI for auto-summaries and blockchain for decentralized verification, we eliminate central data leaks once and for all.</p>
-                </div>
-            </div>
-        </section>
-
-        <section id="architecture">
-            <h2 class="section-title">Hybrid Architecture</h2>
-            <div class="grid">
-                <div class="card">
-                    <h3>
-                        <div class="icon-wrapper">🧠</div>
-                        <span>On-Device AI</span>
-                    </h3>
-                    <p>Lightweight, specialized local speech-to-text (ASR) and large language models (LLM) run offline on your device, processing consultations locally.</p>
-                </div>
-                <div class="card">
-                    <h3>
-                        <div class="icon-wrapper">🛡️</div>
-                        <span>Zero-Trust Storage</span>
-                    </h3>
-                    <p>Your medical data is encrypted client-side using robust cryptographic keys, keeping records completely private and invisible to third parties.</p>
-                </div>
-                <div class="card">
-                    <h3>
-                        <div class="icon-wrapper">⛓️</div>
-                        <span>Blockchain Proofs</span>
-                    </h3>
-                    <p>Tamper-proof cryptographic hashes are anchored directly to the Sui blockchain via OpenClaw, ensuring verified, immutability without revealing record contents.</p>
-                </div>
-                <div class="card">
-                    <h3>
-                        <div class="icon-wrapper">⏳</div>
-                        <span>Ephemeral Sharing</span>
-                    </h3>
-                    <p>Share records securely with doctors using time-bound, secure QR codes. Relies on decentralized peer verification; strictly view-only with no downloads.</p>
-                </div>
-            </div>
-        </section>
-
-        <section id="workflow">
-            <h2 class="section-title">Data Flow</h2>
-            <div class="mermaid-container">
-                <div class="mermaid">
-                    graph TD
-                        classDef default fill:#F8FAFC,stroke:#2D5A8E,stroke-width:2px,color:#1A3A5C,rx:8px,ry:8px
-                        classDef blockchain fill:#F0F9F8,stroke:#B5E5E0,stroke-width:2px,color:#1A3A5C,rx:8px,ry:8px
-                        classDef secure fill:#EBF5FB,stroke:#7FC5E3,stroke-width:2px,color:#1A3A5C,rx:8px,ry:8px
-
-                        A[Consultation Audio] -->|On-Device ASR| B(Transcribed Text)
-                        B -->|Local LLM| C(Clinical Summary)
-                        C --> D{Secure Encryption}
-
-                        D -->|Encrypted Blob| E[Smartphone Local Storage]:::secure
-                        D -->|Hash & Signatures| F[(Sui Blockchain / OpenClaw)]:::blockchain
-
-                        E -.->|Dynamic QR Auth| G[Ephemeral Viewer]
-                        G -.->|Temporary Access| H[Authorized Physician]
+                    <p>AnamPouch encrypts every record in your browser before it leaves the device. Sensitive details are redacted before any AI summary, the encrypted file is stored on decentralised Walrus, and its fingerprint is anchored on Sui — so you hold the key, not a platform.</p>
                 </div>
             </div>
         </section>
 
         <section id="features">
-            <h2 class="section-title">Core Features</h2>
+            <h2 class="section-title">What You Can Do</h2>
             <div class="grid">
                 <div class="card">
                     <h3>
-                        <div class="icon-wrapper">📊</div>
-                        <span>Dashboard</span>
+                        <div class="icon-wrapper">🔑</div>
+                        <span>Passwordless Sign-In</span>
                     </h3>
-                    <p>A beautifully intuitive summary showing your current health status, active treatments, and AI-driven clinical action steps.</p>
+                    <p>Sign in with Google via zkLogin. A non-custodial Sui wallet is derived for you automatically — no seed phrase, no browser extension, no Web3 friction.</p>
                 </div>
                 <div class="card">
                     <h3>
                         <div class="icon-wrapper">🎙️</div>
-                        <span>Smart Voice Intake</span>
+                        <span>Voice &amp; Document Intake</span>
                     </h3>
-                    <p>Initiate clinical transcription of medical visits with a single tap. Converts doctor dialogue into clean, formatted reports instantly.</p>
+                    <p>Capture a visit by voice, or snap a prescription or lab report. Speech recognition and OCR turn it into a clean, structured record in seconds.</p>
                 </div>
                 <div class="card">
                     <h3>
-                        <div class="icon-wrapper">⏳</div>
-                        <span>Verifiable Timeline</span>
+                        <div class="icon-wrapper">🩺</div>
+                        <span>AI Summaries, Privacy-Preserved</span>
                     </h3>
-                    <p>A chronological feed of all clinical records, complete with blockchain integrity check badges confirming absolute record authenticity.</p>
+                    <p>An AI drafts a concise clinical summary — but sensitive personal details are redacted <em>before</em> anything reaches the model, so your raw data never leaves your control.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">📊</div>
+                        <span>Health Dashboard</span>
+                    </h3>
+                    <p>An at-a-glance view of your current status, active medications and recent records — every entry carrying an on-chain integrity badge you can trust.</p>
+                </div>
+                <div class="card">
+                    <h3>
+                        <div class="icon-wrapper">🐋</div>
+                        <span>Encrypted Records on Walrus</span>
+                    </h3>
+                    <p>Reports and images are encrypted in your browser and stored on decentralised Walrus, with their fingerprint anchored on Sui — tamper-evident and always portable.</p>
                 </div>
                 <div class="card">
                     <h3>
                         <div class="icon-wrapper">🔐</div>
-                        <span>Revocable Sharing</span>
+                        <span>Revocable QR Sharing</span>
                     </h3>
-                    <p>Grant temporary medical access dynamically. Fully revoke access keys instantly, ensuring complete control over who views your files.</p>
-                </div>
-                <div class="card">
-                    <h3>
-                        <div class="icon-wrapper">🤖</div>
-                        <span>Local Clinical Copilot</span>
-                    </h3>
-                    <p>A secure medical QA chatbot running locally. Ask medical history questions securely without transmitting personal details to the cloud.</p>
+                    <p>Share a record with a doctor via a time-boxed QR grant. The doctor needs no wallet and pays no gas, and you can revoke access on-chain the instant you choose.</p>
                 </div>
             </div>
         </section>
@@ -591,7 +541,7 @@
                 <img src="/anampouch_logo_transparent.png" alt="AnamPouch Logo">
                 <span>AnamPouch</span>
             </div>
-            <p>&copy; 2026 AnamPouch. Engineered for the Tokyo Clawathon. All rights reserved.</p>
+            <p>&copy; 2026 AnamPouch. Built for Sui Overflow 2026 · Walrus Track. All rights reserved.</p>
         </div>
     </footer>
 
@@ -614,22 +564,6 @@
     <!-- Mini restore button if hidden -->
     <button id="mascot-restore" style="display: none; position: fixed; bottom: 24px; right: 24px; z-index: 1000; background: rgba(255, 255, 255, 0.9); border: 1px solid var(--primary-light); border-radius: 50%; width: 44px; height: 44px; align-items: center; justify-content: center; cursor: pointer; box-shadow: var(--shadow); font-size: 18px; transition: all 0.2s;" title="Show Mascot Buddy">🩺</button>
 
-    <script type="module">
-        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-        mermaid.initialize({
-            startOnLoad: true,
-            theme: 'base',
-            themeVariables: {
-                fontFamily: 'Inter, system-ui, sans-serif',
-                primaryColor: '#F8FAFC',
-                primaryTextColor: '#1A3A5C',
-                lineColor: '#2D5A8E',
-                actorBorder: '#E2E8F0',
-                signalColor: '#64748B',
-                tertiaryColor: '#FBFCFD'
-            }
-        });
-    </script>
     <script>
         (function() {
             const container = document.getElementById('mascot-buddy-container');
@@ -643,7 +577,7 @@
             const quotes = [
                 "Welcome to AnamPouch! 🩺",
                 "Your medical records, fully under your control! 🔒",
-                "Decentralized storage via Walrus! 🐋",
+                "Decentralised storage via Walrus! 🐋",
                 "Verifiable integrity anchored to Sui! 🌊",
                 "Zero-knowledge privacy checks ready. 🛡️",
                 "Click on me to start a checkup! ✨",
